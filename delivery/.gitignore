@@ -1,0 +1,4 @@
+*.zip
+
+# Local copies extracted from the delivery archive
+/frontend*/
