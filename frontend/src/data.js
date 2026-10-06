@@ -4,7 +4,16 @@ export const directions = {
   qa: { name: 'Тестирование ПО', short: 'Тестировщик', skills: ['Тест-дизайн', 'Тест-кейсы', 'SQL', 'REST API', 'Postman', 'Git', 'Автотесты', 'Python'] },
 };
 export const regions = ['Москва', 'Санкт-Петербург', 'Екатеринбург'];
-export const seedProfile = { direction: 'analyst', regions: [], skills: ['Работа с требованиями', 'Моделирование данных'] };
+export const PUBLIC_SKILL_COUNT = 5;
+// Proposed foundations for the prototype; the analyst must approve the contents.
+export const basicSkills = {
+  analyst: ['Работа с требованиями', 'Моделирование данных', 'SQL', 'REST API', 'UML'],
+  csharp: ['C#', '.NET', 'SQL', 'Git', 'REST API'],
+  qa: ['Тест-дизайн', 'Тест-кейсы', 'SQL', 'REST API', 'Postman'],
+};
+// The agreed zero screen applies when the user's skill set is empty.
+// Partial mastery shows a plan; there is no invented minimum mastery threshold.
+export const seedProfile = { direction: 'analyst', regions: [], skills: [], email: '' };
 // Synthetic, deterministic vacancy fixtures. No request to hh.ru is made.
 export function vacancies(direction) {
   const s = directions[direction].skills;
