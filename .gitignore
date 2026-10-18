@@ -63,3 +63,4 @@ nunit-*.xml
 /figma-wireframes/
 
 appsettings.Development.json
+.idea/

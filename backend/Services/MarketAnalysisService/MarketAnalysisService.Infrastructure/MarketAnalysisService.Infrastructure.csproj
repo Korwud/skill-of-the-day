@@ -13,4 +13,8 @@
       <PackageReference Include="Npgsql" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\MarketAnalysisService.Application\MarketAnalysisService.Application.csproj" />
+    </ItemGroup>
+
 </Project>

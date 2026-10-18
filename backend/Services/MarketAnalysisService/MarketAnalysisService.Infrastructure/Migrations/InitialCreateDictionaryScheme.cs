@@ -11,11 +11,11 @@ public class InitialCreateDictionaryScheme : Migration
 
         Create.Table("directions").InSchema("dictionary")
             .WithColumn("id").AsInt64().PrimaryKey().Identity()
-            .WithColumn("name").AsString(255).NotNullable().Unique();
+            .WithColumn("name").AsString(255).NotNullable();
         
         Create.Table("regions").InSchema("dictionary")
             .WithColumn("id").AsInt64().PrimaryKey().Identity()
-            .WithColumn("name").AsString(255).NotNullable().Unique();
+            .WithColumn("name").AsString(255).NotNullable();
     }
 
     public override void Down()
