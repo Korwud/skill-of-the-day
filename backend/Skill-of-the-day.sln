@@ -14,13 +14,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SkillService", "SkillServic
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "RecommendationService", "RecommendationService", "{F6627A59-3306-452E-A735-58E9CA62B0FE}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MarketAnalysisService", "MarketAnalysisService", "{FE7974E4-E317-4A8C-8439-2E8E5EA68F46}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MarketAnalyticsService", "MarketAnalyticsService", "{FE7974E4-E317-4A8C-8439-2E8E5EA68F46}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{95132874-18EB-42AE-BDE1-6BA73863A784}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkillService.Infrastructure", "Services\SkillService\SkillService.Infrastructure\SkillService.Infrastructure.csproj", "{35EE2F50-4BCD-4071-AB31-69BDB120E0A9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketAnalysisService.Infrastructure", "Services\MarketAnalysisService\MarketAnalysisService.Infrastructure\MarketAnalysisService.Infrastructure.csproj", "{88672878-3275-41AC-9FE7-DCDD3B146660}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketAnalyticsService.Infrastructure", "Services\MarketAnalyticsService\MarketAnalyticsService.Infrastructure\MarketAnalyticsService.Infrastructure.csproj", "{88672878-3275-41AC-9FE7-DCDD3B146660}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProfileService.Infrastructure", "Services\ProfileService\ProfileService.Infrastructure\ProfileService.Infrastructure.csproj", "{287FE887-E4B8-42CB-ABA5-BB1974CE568B}"
 EndProject
@@ -30,11 +30,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Migrator", "Migrator", "{86
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Migrator", "Migrator\Migrator\Migrator.csproj", "{F6AE1196-AB93-4BB2-A518-0F9506F72FA3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketAnalysisService.Domain", "Services\MarketAnalysisService\MarketAnalysisService.Domain\MarketAnalysisService.Domain.csproj", "{43EC8699-89C5-4B97-B0E2-E0BA4422A140}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketAnalyticsService.Domain", "Services\MarketAnalyticsService\MarketAnalyticsService.Domain\MarketAnalyticsService.Domain.csproj", "{43EC8699-89C5-4B97-B0E2-E0BA4422A140}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketAnalysisService.Application", "Services\MarketAnalysisService\MarketAnalysisService.Application\MarketAnalysisService.Application.csproj", "{1ABF68EA-CCFB-4D7F-8532-3C8E9A768DA2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketAnalyticsService.Application", "Services\MarketAnalyticsService\MarketAnalyticsService.Application\MarketAnalyticsService.Application.csproj", "{1ABF68EA-CCFB-4D7F-8532-3C8E9A768DA2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketAnalysisService.Api", "Services\MarketAnalysisService\MarketAnalysisService.Api\MarketAnalysisService.Api.csproj", "{E72D39BB-6532-4F69-849B-F61A32D2C710}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketAnalyticsService.Api", "Services\MarketAnalyticsService\MarketAnalyticsService.Api\MarketAnalyticsService.Api.csproj", "{E72D39BB-6532-4F69-849B-F61A32D2C710}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

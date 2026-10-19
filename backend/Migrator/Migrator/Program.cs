@@ -21,7 +21,7 @@ var serviceProvider = new ServiceCollection()
             Assembly.Load("AuthService.Infrastructure"),
             Assembly.Load("SkillService.Infrastructure"),
             Assembly.Load("ProfileService.Infrastructure"),
-            Assembly.Load("MarketAnalysisService.Infrastructure")
+            Assembly.Load("MarketAnalyticsService.Infrastructure")
             ).For.Migrations())
         .AddLogging(logging => logging.AddFluentMigratorConsole())
         .BuildServiceProvider(false);
