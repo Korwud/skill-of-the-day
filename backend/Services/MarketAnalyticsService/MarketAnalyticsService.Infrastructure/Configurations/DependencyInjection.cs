@@ -1,6 +1,8 @@
+using Core.Configurations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MarketAnalyticsService.Application.Interfaces;
+using MarketAnalyticsService.Application.Services;
 using MarketAnalyticsService.Infrastructure.Repositories;
 
 namespace MarketAnalyticsService.Infrastructure.Configurations;
@@ -11,10 +13,10 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-                               ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+        services.AddSharedInfrastructure(configuration);
         
-        services.AddSingleton(new PostgresConnectionFactory(connectionString));
+        services.AddScoped<DirectionService>();
+        services.AddScoped<RegionService>();
         
         services.AddScoped<IDirectionRepository, DirectionRepository>();
         services.AddScoped<IRegionRepository, RegionRepository>();

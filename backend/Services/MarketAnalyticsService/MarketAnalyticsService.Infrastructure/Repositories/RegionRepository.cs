@@ -1,7 +1,7 @@
 using MarketAnalyticsService.Application.Interfaces;
 using MarketAnalyticsService.Domain.Models;
 using Dapper;
-using MarketAnalyticsService.Infrastructure.Configurations;
+using Core.Configurations;
 
 namespace MarketAnalyticsService.Infrastructure.Repositories;
 
@@ -31,7 +31,7 @@ public class RegionRepository : IRegionRepository
         await connection.ExecuteAsync(command);
     }
 
-    public async Task<Region?> GetRegion(Int64 id, CancellationToken cancellationToken)
+    public async Task<Region?> GetRegion(long id, CancellationToken cancellationToken)
     {
         using var connection = _connectionFactory.GetConnection();
 

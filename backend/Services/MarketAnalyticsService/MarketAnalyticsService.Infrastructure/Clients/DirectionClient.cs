@@ -4,19 +4,13 @@ using MarketAnalyticsService.Domain.Dto;
 
 namespace MarketAnalyticsService.Infrastructure.Clients;
 
-public class DirectionClient : IDirectionClient
+public class DirectionClient(HttpClient httpClient) : IDirectionClient
 {
-    private readonly HttpClient _httpClient;
-    private const String ENDPOINT = "professional_roles";
-
-    public DirectionClient(HttpClient httpClient)
-    {
-        _httpClient = httpClient;
-    }
+    private const string Endpoint = "professional_roles";
     
     public async Task<DirectionApiDto> FetchDirections(CancellationToken cancellationToken)
     {
-        var response = _httpClient.GetAsync(ENDPOINT, cancellationToken);
+        var response = httpClient.GetAsync(Endpoint, cancellationToken);
 
         if (response.Result.IsSuccessStatusCode)
         {
@@ -24,9 +18,7 @@ public class DirectionClient : IDirectionClient
 
             return data ?? new DirectionApiDto();
         }
-        else
-        {
-            throw new HttpRequestException(response.Result.ReasonPhrase);
-        }
+        
+        throw new HttpRequestException(response.Result.ReasonPhrase);
     }
 }

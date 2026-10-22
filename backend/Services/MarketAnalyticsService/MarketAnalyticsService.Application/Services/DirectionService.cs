@@ -4,20 +4,11 @@ using MarketAnalyticsService.Application.Interfaces;
 
 namespace MarketAnalyticsService.Application.Services;
 
-public class DirectionService
+public class DirectionService(IDirectionClient client, IDirectionRepository repository)
 {
-    private readonly IDirectionClient _client;
-    private readonly IDirectionRepository _repository;
-
-    public DirectionService(IDirectionClient client, IDirectionRepository repository)
-    {
-        _client = client;
-        _repository = repository;
-    }
-
     public async Task SyncDirections(CancellationToken cancellationToken)
     {
-        var directions = _client.FetchDirections(cancellationToken);
+        var directions = client.FetchDirections(cancellationToken);
         
         var result = new List<Direction>();
 
@@ -35,18 +26,18 @@ public class DirectionService
             }
         }
         
-        await _repository.AddDirections(result, cancellationToken);
+        await repository.AddDirections(result, cancellationToken);
     }
     
-    public async Task<Direction?> GetDirection(Int64 directionId, CancellationToken cancellationToken)
+    public async Task<Direction?> GetDirection(long directionId, CancellationToken cancellationToken)
     {
-        var result = await _repository.GetDirection(directionId, cancellationToken);
+        var result = await repository.GetDirection(directionId, cancellationToken);
         
         return result;
     }
 
     public async Task DeleteDirections(CancellationToken cancellationToken)
     {
-        await _repository.DeleteDirections(cancellationToken);
+        await repository.DeleteDirections(cancellationToken);
     }
 }

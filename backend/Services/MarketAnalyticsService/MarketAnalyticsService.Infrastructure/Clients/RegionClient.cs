@@ -4,19 +4,13 @@ using MarketAnalyticsService.Domain.Dto;
 
 namespace MarketAnalyticsService.Infrastructure.Clients;
 
-public class RegionClient : IRegionClient
+public class RegionClient(HttpClient httpClient) : IRegionClient
 {
-    private readonly HttpClient _httpClient;
-    private const String ENDPOINT = "areas";
-
-    public RegionClient(HttpClient httpClient)
-    {
-        _httpClient = httpClient;
-    }
+    private const string Endpoint = "areas";
     
     public async Task<IEnumerable<RegionDto>> FetchRegions(CancellationToken cancellationToken)
     {
-        var response = _httpClient.GetAsync(ENDPOINT, cancellationToken);
+        var response = httpClient.GetAsync(Endpoint, cancellationToken);
 
         if (response.Result.IsSuccessStatusCode)
         {
@@ -24,9 +18,7 @@ public class RegionClient : IRegionClient
 
             return data ?? new List<RegionDto>();
         }
-        else
-        {
-            throw new HttpRequestException(response.Result.ReasonPhrase);
-        }
+        
+        throw new HttpRequestException(response.Result.ReasonPhrase);
     }
 }

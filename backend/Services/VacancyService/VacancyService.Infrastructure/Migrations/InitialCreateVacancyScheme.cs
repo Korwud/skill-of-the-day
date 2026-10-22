@@ -21,8 +21,7 @@ public class InitialCreateVacancyScheme : Migration
             .WithColumn("experience").AsString(100)
             .WithColumn("published_at").AsDateTime()
             .WithColumn("description").AsString(int.MaxValue)
-            .WithColumn("url").AsString(int.MaxValue).NotNullable()
-            .WithColumn("structure_required").AsBoolean().NotNullable().WithDefaultValue(false);
+            .WithColumn("url").AsString(int.MaxValue).NotNullable();
 
         Create.Table("vacancy_snapshots").InSchema("vacancy")
             .WithColumn("id").AsInt64().PrimaryKey().Identity()

@@ -10,7 +10,14 @@
       <PackageReference Include="Dapper" />
       <PackageReference Include="FluentMigrator" />
       <PackageReference Include="FluentMigrator.Runner.Postgres" />
+      <PackageReference Include="Microsoft.AspNetCore.WebUtilities" />
       <PackageReference Include="Npgsql" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\..\Shared\Core\Core.csproj" />
+      <ProjectReference Include="..\VacancyService.Application\VacancyService.Application.csproj" />
+      <ProjectReference Include="..\VacancyService.Domain\VacancyService.Domain.csproj" />
     </ItemGroup>
 
 </Project>

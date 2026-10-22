@@ -14,6 +14,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\..\Shared\Core\Core.csproj" />
       <ProjectReference Include="..\MarketAnalyticsService.Application\MarketAnalyticsService.Application.csproj" />
     </ItemGroup>
 

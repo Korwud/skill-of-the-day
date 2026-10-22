@@ -10,11 +10,11 @@ public class InitialCreateDictionaryScheme : Migration
         Execute.Sql("CREATE SCHEMA IF NOT EXISTS dictionary;");
 
         Create.Table("directions").InSchema("dictionary")
-            .WithColumn("id").AsInt64().PrimaryKey().Identity()
+            .WithColumn("id").AsInt64().PrimaryKey()
             .WithColumn("name").AsString(255).NotNullable();
         
         Create.Table("regions").InSchema("dictionary")
-            .WithColumn("id").AsInt64().PrimaryKey().Identity()
+            .WithColumn("id").AsInt64().PrimaryKey()
             .WithColumn("name").AsString(255).NotNullable();
     }
 

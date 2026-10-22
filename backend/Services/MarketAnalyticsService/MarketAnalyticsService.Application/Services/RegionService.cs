@@ -4,20 +4,11 @@ using MarketAnalyticsService.Application.Interfaces;
 
 namespace MarketAnalyticsService.Application.Services;
 
-public class RegionService
+public class RegionService(IRegionClient client, IRegionRepository repository)
 {
-    private readonly IRegionClient _client;
-    private readonly IRegionRepository _repository;
-
-    public RegionService(IRegionClient client, IRegionRepository repository)
-    {
-        _client = client;
-        _repository = repository;
-    }
-
     public async Task AddRegions(CancellationToken cancellationToken)
     {
-        var regions = _client.FetchRegions(cancellationToken);
+        var regions = client.FetchRegions(cancellationToken);
 
         var result = new List<Region>();
         
@@ -26,22 +17,22 @@ public class RegionService
             FlattenRegion(region, result);
         }
     
-        await _repository.AddRegions(result, cancellationToken);
+        await repository.AddRegions(result, cancellationToken);
     }
 
-    public async Task<Region?> GetRegion(Int64 regionId, CancellationToken cancellationToken)
+    public async Task<Region?> GetRegion(long regionId, CancellationToken cancellationToken)
     {
-        var result = await _repository.GetRegion(regionId, cancellationToken);
+        var result = await repository.GetRegion(regionId, cancellationToken);
         
         return result;
     }
 
     public async Task DeleteRegions(CancellationToken cancellationToken)
     {
-        await _repository.DeleteRegions(cancellationToken);
+        await repository.DeleteRegions(cancellationToken);
     }
     
-    private void FlattenRegion(RegionDto dto, List<Region> result)
+    private static void FlattenRegion(RegionDto dto, List<Region> result)
     {
         var parsedId = long.Parse(dto.Id);
         
@@ -53,12 +44,9 @@ public class RegionService
     
         result.Add(region);
         
-        if (dto.Areas.Any())
+        foreach (var childDto in dto.Areas)
         {
-            foreach (var childDto in dto.Areas)
-            {
-                FlattenRegion(childDto, result);
-            }
+            FlattenRegion(childDto, result);
         }
     }
 }
