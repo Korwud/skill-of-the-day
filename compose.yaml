@@ -1,0 +1,11 @@
+name: skill-day
+services:
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    ports:
+      - "${FRONTEND_HOST:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080"
+    environment:
+      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://api-gateway:8080}
+    restart: unless-stopped
