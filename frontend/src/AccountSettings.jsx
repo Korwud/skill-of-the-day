@@ -1,46 +1,86 @@
 import React, { useState } from "react";
 import { Modal } from "./components/UI";
+import { useAuth } from "./components/AuthProvider";
 
-function DeleteDialog({ onDelete, close }) {
-  return (
-    <Modal title="Удалить учётную запись?" close={close}>
-      <p>
-        Будут удалены email, навыки и фильтры, сохранённые в этом браузере. Это
-        действие нельзя отменить.
-      </p>
-      <div className="actions">
-        <button type="button" className="button danger" onClick={onDelete}>
-          Да, удалить
-        </button>
-        <button type="button" className="button secondary" onClick={close}>
-          Отмена
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-export default function AccountSettings({ email, saveEmail, onDelete }) {
-  const [address, setAddress] = useState(email || "");
-  const [emailMessage, setEmailMessage] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState("");
-  const [confirm, setConfirm] = useState(false);
-  function changeEmail(event) {
+export default function AccountSettings({ email, onDelete }) {
+  const { request, clearSession } = useAuth();
+  const [address, setAddress] = useState(email || ""),
+    [emailMessage, setEmailMessage] = useState(""),
+    [passwordMessage, setPasswordMessage] = useState("");
+  const [confirm, setConfirm] = useState(false),
+    [busy, setBusy] = useState(false),
+    [deleteError, setDeleteError] = useState("");
+  async function changeEmail(event) {
     event.preventDefault();
-    saveEmail(address.trim());
-    setEmailMessage("Email сохранён в локальном профиле.");
+    const form = event.currentTarget;
+    const currentPassword = new FormData(form).get("currentPassword");
+    setBusy(true);
+    setEmailMessage("");
+    try {
+      await request(
+        "/change-email",
+        { newEmail: address.trim(), currentPassword },
+        { authenticated: true },
+      );
+      form.querySelector("[type=password]").value = "";
+      setEmailMessage(
+        "Если адрес доступен, письмо отправлено на новую почту. Подтвердите её по ссылке.",
+      );
+    } catch (error) {
+      setEmailMessage(error.message);
+    } finally {
+      setBusy(false);
+    }
   }
-  function changePassword(event) {
+  async function changePassword(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget,
+      data = new FormData(form);
     if (data.get("newPassword") !== data.get("repeatPassword")) {
       setPasswordMessage("Новые пароли не совпадают.");
       return;
     }
-    event.currentTarget.reset();
-    setPasswordMessage(
-      "Форма проверена. Смена пароля станет доступна после подключения сервера.",
+    setBusy(true);
+    setPasswordMessage("");
+    try {
+      await request(
+        "/change-password",
+        {
+          currentPassword: data.get("currentPassword"),
+          newPassword: data.get("newPassword"),
+        },
+        { authenticated: true },
+      );
+      form.reset();
+      clearSession();
+      location.hash = "/login";
+    } catch (error) {
+      setPasswordMessage(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function deleteAccount(event) {
+    event.preventDefault();
+    const currentPassword = new FormData(event.currentTarget).get(
+      "currentPassword",
     );
+    setBusy(true);
+    setDeleteError("");
+    try {
+      await request(
+        "/account",
+        { currentPassword },
+        { method: "DELETE", authenticated: true },
+      );
+      onDelete();
+      clearSession();
+      location.hash = "/login";
+    } catch (error) {
+      setDeleteError(error.message);
+    } finally {
+      setBusy(false);
+    }
   }
   return (
     <>
@@ -48,8 +88,8 @@ export default function AccountSettings({ email, saveEmail, onDelete }) {
         <span className="eyebrow">Учётная запись</span>
         <h3>Данные и доступ</h3>
         <p className="small muted">
-          Демоверсия: email сохраняется в браузере. Пароли не сохраняются и не
-          отправляются.
+          Смена почты требует подтверждения нового адреса. После смены пароля
+          нужно войти заново на всех устройствах.
         </p>
         <form onSubmit={changeEmail}>
           <label>
@@ -64,10 +104,21 @@ export default function AccountSettings({ email, saveEmail, onDelete }) {
                 setAddress(event.target.value);
                 setEmailMessage("");
               }}
-              placeholder="you@example.ru"
             />
           </label>
-          <button className="button full">Сохранить email</button>
+          <label>
+            Пароль для смены почты
+            <input
+              type="password"
+              name="currentPassword"
+              required
+              maxLength={128}
+              autoComplete="current-password"
+            />
+          </label>
+          <button className="button full" disabled={busy}>
+            Подтвердить новую почту
+          </button>
           {emailMessage && (
             <p role="status" className="notice">
               {emailMessage}
@@ -84,6 +135,7 @@ export default function AccountSettings({ email, saveEmail, onDelete }) {
                 type="password"
                 autoComplete="current-password"
                 required
+                maxLength={128}
               />
             </label>
             <label>
@@ -92,7 +144,8 @@ export default function AccountSettings({ email, saveEmail, onDelete }) {
                 name="newPassword"
                 type="password"
                 autoComplete="new-password"
-                minLength={8}
+                minLength={12}
+                maxLength={128}
                 required
               />
             </label>
@@ -102,11 +155,15 @@ export default function AccountSettings({ email, saveEmail, onDelete }) {
                 name="repeatPassword"
                 type="password"
                 autoComplete="new-password"
-                minLength={8}
+                minLength={12}
+                maxLength={128}
                 required
               />
             </label>
-            <button className="button full">Сменить пароль</button>
+            <p className="small">От 12 до 128 символов.</p>
+            <button className="button full" disabled={busy}>
+              Сменить пароль
+            </button>
             {passwordMessage && (
               <p role="status" className="notice">
                 {passwordMessage}
@@ -118,8 +175,8 @@ export default function AccountSettings({ email, saveEmail, onDelete }) {
       <section className="panel reset-panel">
         <h3>Удаление учётной записи</h3>
         <p className="small muted">
-          Удаление требует подтверждения. В демоверсии удаляются только данные
-          этого браузера.
+          Учётная запись и её сессии будут удалены. Персональные настройки на
+          этом устройстве также очистятся.
         </p>
         <button
           type="button"
@@ -130,7 +187,46 @@ export default function AccountSettings({ email, saveEmail, onDelete }) {
         </button>
       </section>
       {confirm && (
-        <DeleteDialog onDelete={onDelete} close={() => setConfirm(false)} />
+        <Modal
+          title="Удалить учётную запись?"
+          close={() => {
+            if (!busy) setConfirm(false);
+          }}
+        >
+          <p>
+            Это действие нельзя отменить. Подтвердите удаление текущим паролем.
+          </p>
+          <form onSubmit={deleteAccount}>
+            <label>
+              Пароль для удаления
+              <input
+                type="password"
+                name="currentPassword"
+                required
+                maxLength={128}
+                autoComplete="current-password"
+              />
+            </label>
+            <div className="actions">
+              <button className="button danger" disabled={busy}>
+                Да, удалить
+              </button>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={busy}
+                onClick={() => setConfirm(false)}
+              >
+                Отмена
+              </button>
+            </div>
+            {deleteError && (
+              <p role="alert" className="notice">
+                {deleteError}
+              </p>
+            )}
+          </form>
+        </Modal>
       )}
     </>
   );
