@@ -7,7 +7,7 @@ namespace VacancyService.Infrastructure.Repositories;
 
 public class VacancySkillRepository(PostgresConnectionFactory connectionFactory) : IVacancySkillRepository
 {
-    public async Task AddVacancySkill(VacancySkill vacancySkill, CancellationToken cancellationToken)
+    public async Task AddVacancySkills(IEnumerable<VacancySkill> vacancySkills, CancellationToken cancellationToken)
     {
         var connection = connectionFactory.GetConnection();
         
@@ -18,7 +18,7 @@ public class VacancySkillRepository(PostgresConnectionFactory connectionFactory)
 
         var command = new CommandDefinition(
             sql,
-            vacancySkill,
+            vacancySkills,
             cancellationToken: cancellationToken);
         
         await connection.ExecuteAsync(command);

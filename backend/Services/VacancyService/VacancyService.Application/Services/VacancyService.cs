@@ -1,3 +1,5 @@
+using SkillService.Application.Interfaces;
+using SkillService.Domain.Models;
 using VacancyService.Application.Interfaces;
 using VacancyService.Domain.Dto;
 using VacancyService.Domain.Models;
@@ -6,10 +8,10 @@ namespace VacancyService.Application.Services;
 
 public class VacancyService(
     IVacancyRepository vacancyRepository, 
-    //ISkillRepository skillRepository,
-    IVacancySkillRepository vacancySkillRepository,
     IVacancySnapshotRepository vacancySnapshotRepository,
-    IVacancyClient vacancyClient )
+    IVacancySkillRepository vacancySkillRepository,
+    IVacancyClient vacancyClient,
+    ISkillClient skillClient)
 {
     /// <summary>
     /// Временный метод до интеграции c кафкой
@@ -17,10 +19,9 @@ public class VacancyService(
     public async Task AddVacancies(string profession, CancellationToken cancellationToken)
     {
         var generalVacanciesList = new List<VacancyDto>();
-        
         var vacanciesList = new List<Vacancy>();
-
-        var skills = new List<IEnumerable<string>>();
+        var skillList = new List<string>();
+        var vacanciesSkills = new Dictionary<long, List<string>>();
 
         var snapshotId = await vacancySnapshotRepository.AddSnapshot(
             new VacancySnapshot { CollectedAt = DateTime.UtcNow }, 
@@ -34,7 +35,7 @@ public class VacancyService(
             { "per_page", "100" }
         };
 
-        var found = 100;
+        var found = 950;
         var vacancyChecked = 0;
 
         while (found > vacancyChecked)
@@ -47,7 +48,7 @@ public class VacancyService(
                 generalVacanciesList.AddRange(generalVacancies.Items);
             }
             
-            vacancyChecked += 100;
+            vacancyChecked += 1000;
             queryParams["page"] = (vacancyChecked / 100).ToString();
         }
         
@@ -88,26 +89,54 @@ public class VacancyService(
 
                 if (vacancyDetails.KeySkills != null)
                 {
-                    skills.Add(vacancyDetails.KeySkills.Select(skill => skill.Name));
+                    skillList = skillList.Concat(vacancyDetails.KeySkills.Select(skill => skill.Name)).ToList();
+                    vacanciesSkills[externalId] = skillList;
                 }
             }
         }
         
-        var vacancyIds = await vacancyRepository.AddVacancies(vacanciesList, cancellationToken);
+        var vacancyIdPairs = await vacancyRepository.AddVacancies(vacanciesList, cancellationToken);
 
+        await skillClient.AddSkills(skillList, cancellationToken);
+
+        var skillsForVacancies = await skillClient.GetSkillsByName(skillList, cancellationToken);
+
+        var allVacancySkills = GetAllVacancySkills(vacancyIdPairs, vacanciesSkills, skillsForVacancies);
         
+        var uniqueVacancySkills = allVacancySkills
+            .GroupBy(vacancySkill => new { vacancySkill.VacancyId, vacancySkill.SkillId })
+            .Select(group => group.First());
+
+        await vacancySkillRepository.AddVacancySkills(uniqueVacancySkills, cancellationToken);
     }
 
-    private async Task<List<VacancySkill>> GetVacancySkills(IEnumerable<long> vacancyIds, List<IEnumerable<string>> skills)
+    private IEnumerable<VacancySkill> GetAllVacancySkills(
+        Dictionary<long, long> pairs, 
+        Dictionary<long, List<string>> vacanciesSkills,
+        Dictionary<string, long>? allSkills)
     {
-        for (var i = 0; i < skills.Count; i++)
+        var vacancySkillList = new List<VacancySkill>();
+        
+        var externalIds = pairs.Keys.ToList();
+
+        foreach (var externalId in externalIds)
         {
-            var vacancyId = vacancyIds.ElementAt(i);
+            var skills = vacanciesSkills[externalId];
             
-            // var skill = skillRepository.GetSkill(name);
+            var vacancyId = pairs[externalId];
+
+            foreach (var skill in skills)
+            {
+                vacancySkillList.Add(new VacancySkill
+                {
+                    VacancyId = vacancyId,
+                    SkillId = allSkills[skill.ToLower()],
+                    Category = "REQUIRED"
+                });
+            }
         }
 
-        return new List<VacancySkill>();
+        return vacancySkillList;
     }
 
     public async Task<IEnumerable<Vacancy>> GetVacancies(CancellationToken cancellationToken)

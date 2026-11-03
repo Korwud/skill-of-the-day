@@ -7,10 +7,12 @@ namespace VacancyService.Infrastructure.Repositories;
 
 public class VacancyRepository(PostgresConnectionFactory connectionFactory) : IVacancyRepository
 {
-    public async Task<IEnumerable<long>> AddVacancies(List<Vacancy> vacancies, CancellationToken cancellationToken)
+    public async Task<Dictionary<long, long>> AddVacancies(List<Vacancy> vacancies, CancellationToken cancellationToken)
     {
+        var dictionary = new Dictionary<long, long>();
+        
         if (vacancies.Count == 0)
-            return Enumerable.Empty<long>();
+            return dictionary;
 
         var connection = connectionFactory.GetConnection();
         var parameters = new DynamicParameters();
@@ -19,9 +21,6 @@ public class VacancyRepository(PostgresConnectionFactory connectionFactory) : IV
         for (int i = 0; i < vacancies.Count; i++)
         {
             var vacancy = vacancies[i];
-            
-            Console.WriteLine($"ExternalId={vacancy.ExternalId}, Title={vacancy.Title}, SnapshotId={vacancy.SnapshotId}, PublishedAt={vacancy.PublishedAt}");
-
             
             valuesSql.Add($"(@ExternalId{i}, @SnapshotId{i}, @DirectionId{i}, @RegionId{i}, " +
                           $"@Title{i}, @Employer{i}, @WorkFormat{i}, @Experience{i}, " +
@@ -46,7 +45,7 @@ public class VacancyRepository(PostgresConnectionFactory connectionFactory) : IV
                        title, employer, work_format, experience, 
                        published_at, description, url)
                   VALUES {string.Join(", ", valuesSql)}
-                  RETURNING id
+                  RETURNING id, external_id
                   """;
 
         var command = new CommandDefinition(
@@ -54,8 +53,14 @@ public class VacancyRepository(PostgresConnectionFactory connectionFactory) : IV
             parameters,
             cancellationToken: cancellationToken);
         
-        var ids = await connection.QueryAsync<long>(command);
-        return ids;
+        var pairs = await connection.QueryAsync<VacancyIdPair>(command);
+        
+        foreach (var pair in pairs)
+        {
+            dictionary.Add(pair.ExternalId, pair.Id);
+        }
+        
+        return dictionary;
     }
 
     public async Task<IEnumerable<Vacancy>> GetVacancies(CancellationToken cancellationToken)

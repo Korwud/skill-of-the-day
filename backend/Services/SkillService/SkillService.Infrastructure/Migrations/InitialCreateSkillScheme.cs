@@ -11,7 +11,7 @@ public class InitialCreateSkillScheme : Migration
 
         Create.Table("skills").InSchema("skill")
             .WithColumn("id").AsInt64().Identity().PrimaryKey()
-            .WithColumn("name").AsString(255).NotNullable();
+            .WithColumn("name").AsString(255).NotNullable().Unique();
         
         Create.Table("skill_synonyms").InSchema("skill")
             .WithColumn("id").AsInt64().Identity().PrimaryKey()

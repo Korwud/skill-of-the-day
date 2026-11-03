@@ -13,4 +13,10 @@
       <PackageReference Include="Npgsql" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\..\..\Shared\Core\Core.csproj" />
+      <ProjectReference Include="..\SkillService.Application\SkillService.Application.csproj" />
+      <ProjectReference Include="..\SkillService.Domain\SkillService.Domain.csproj" />
+    </ItemGroup>
+
 </Project>

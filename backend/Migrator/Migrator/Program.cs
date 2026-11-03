@@ -32,6 +32,8 @@ using (var scope = serviceProvider.CreateScope())
     
     Console.WriteLine("Начинаем применение миграций...");
     
+    runner.MigrateDown(0); 
+    
     runner.MigrateUp(); 
     
     Console.WriteLine("Миграции успешно применены!");

@@ -4,7 +4,7 @@ namespace VacancyService.Application.Interfaces;
 
 public interface IVacancySkillRepository
 {
-    public Task AddVacancySkill(VacancySkill vacancySkill, CancellationToken cancellationToken);
+    public Task AddVacancySkills(IEnumerable<VacancySkill> vacancySkills, CancellationToken cancellationToken);
     
     public Task<IEnumerable<VacancySkill>> GetVacancySkills(long vacancyId, CancellationToken cancellationToken);
     

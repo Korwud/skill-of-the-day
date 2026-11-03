@@ -36,7 +36,7 @@ public class InitialCreateVacancyScheme : Migration
             .WithColumn("vacancy_id").AsInt64()
             .WithColumn("skill_id").AsInt64()
             .WithColumn("category").AsString(20).NotNullable()
-            .WithColumn("requirement_quote").AsString(int.MaxValue);
+            .WithColumn("requirement_quote").AsString(int.MaxValue).Nullable();
         
         Create.PrimaryKey("pk_vacancy_skills")
             .OnTable("vacancy_skills").WithSchema("vacancy")

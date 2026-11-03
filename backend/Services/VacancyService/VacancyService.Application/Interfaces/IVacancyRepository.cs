@@ -4,7 +4,7 @@ namespace VacancyService.Application.Interfaces;
 
 public interface IVacancyRepository
 {
-    public Task<IEnumerable<long>> AddVacancies(List<Vacancy> vacancies, CancellationToken cancellationToken);
+    public Task<Dictionary<long, long>> AddVacancies(List<Vacancy> vacancies, CancellationToken cancellationToken);
     
     public Task<IEnumerable<Vacancy>> GetVacancies(CancellationToken cancellationToken);
     

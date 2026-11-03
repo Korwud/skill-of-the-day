@@ -3,6 +3,8 @@ using VacancyService.Application.Interfaces;
 using VacancyService.Infrastructure.Clients;
 using VacancyService.Infrastructure.Configurations;
 using Core.Web;
+using SkillService.Application.Interfaces;
+using SkillService.Infrastructure.Clients;
 
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
@@ -18,6 +20,11 @@ builder.Services.AddHttpClient<IVacancyClient, VacancyClient>(client =>
     client.DefaultRequestHeaders.Add("Accept", "application/json");
     client.DefaultRequestHeaders.Authorization = 
         new AuthenticationHeaderValue("Bearer", builder.Configuration["Authorization"]);
+});
+
+builder.Services.AddHttpClient<ISkillClient, SkillClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["SkillsPath"] ?? "http://localhost:5272/");
 });
 
 var app = builder.BuildCommonWebApp();
