@@ -1,11 +1,41 @@
 import { test, expect } from "@playwright/test";
 import { demoProfile } from "../src/data.js";
 
+test.beforeEach(async ({ page }) => {
+  let user = {
+    id: "browser-test-user",
+    email: "alex@example.test",
+    roles: ["User", "Admin"],
+  };
+  await page.route("**/api/auth/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/refresh") || path.endsWith("/login"))
+      return route.fulfill({
+        status: user ? 200 : 401,
+        json: user
+          ? { accessToken: "browser-test-token", expiresIn: 600, user }
+          : { title: "Войдите заново" },
+      });
+    if (
+      path.endsWith("/account") ||
+      path.endsWith("/change-password") ||
+      path.endsWith("/logout")
+    ) {
+      user = null;
+      return route.fulfill({ status: 204 });
+    }
+    return route.fulfill({ status: 202 });
+  });
+});
+
 async function partialProfile(page, overrides = {}) {
   await page.goto("/");
   await page.evaluate(
     (profile) =>
-      localStorage.setItem("skill-day-profile", JSON.stringify(profile)),
+      localStorage.setItem(
+        "skill-day-profile:browser-test-user",
+        JSON.stringify(profile),
+      ),
     { ...demoProfile, ...overrides },
   );
   await page.reload();
@@ -294,47 +324,45 @@ test("Admin actions and two manual vacancy flags are persisted locally", async (
   ).toBeChecked();
 });
 
-test("Account email persists, passwords stay ephemeral, deletion requires confirmation", async ({
+test("Account actions send requests, keep passwords ephemeral and require deletion confirmation", async ({
   page,
 }) => {
   await page.goto("/#/profile");
   await page
     .getByLabel("Электронная почта", { exact: true })
-    .fill("danil@example.ru");
+    .fill("danil@example.test");
   await page
-    .getByRole("button", { name: "Сохранить email", exact: true })
-    .click();
-  await page.getByLabel("Направление", { exact: true }).selectOption("qa");
+    .getByLabel("Пароль для смены почты", { exact: true })
+    .fill("Current passphrase 123");
+  const changeEmail = page.waitForRequest((request) =>
+    request.url().endsWith("/change-email"),
+  );
   await page
-    .getByRole("button", { name: "Сохранить изменения", exact: true })
+    .getByRole("button", { name: "Подтвердить новую почту", exact: true })
     .click();
-  await page.reload();
-  await expect(
-    page.getByLabel("Электронная почта", { exact: true }),
-  ).toHaveValue("danil@example.ru");
+  expect((await changeEmail).postDataJSON()).toEqual({
+    newEmail: "danil@example.test",
+    currentPassword: "Current passphrase 123",
+  });
+  await expect(page.getByRole("status")).toContainText("письмо отправлено");
   await page.getByText("Изменить пароль", { exact: true }).click();
   await page
     .getByLabel("Текущий пароль", { exact: true })
-    .fill("current-secret");
-  await page.getByLabel("Новый пароль", { exact: true }).fill("new-secret");
+    .fill("Current passphrase 123");
+  await page
+    .getByLabel("Новый пароль", { exact: true })
+    .fill("New passphrase 123");
   await page
     .getByLabel("Повторите новый пароль", { exact: true })
-    .fill("other-secret");
+    .fill("Different passphrase 123");
   await page
     .getByRole("button", { name: "Сменить пароль", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText("не совпадают");
-  await page
-    .getByLabel("Повторите новый пароль", { exact: true })
-    .fill("new-secret");
-  await page
-    .getByRole("button", { name: "Сменить пароль", exact: true })
-    .click();
-  await expect(page.getByLabel("Новый пароль", { exact: true })).toHaveValue(
-    "",
+  await expect(page.locator(".password-settings [role=status]")).toContainText(
+    "не совпадают",
   );
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain(
-    "secret",
+    "passphrase",
   );
   await page
     .getByRole("button", { name: "Удалить учётную запись", exact: true })
@@ -343,46 +371,47 @@ test("Account email persists, passwords stay ephemeral, deletion requires confir
     .getByRole("dialog")
     .getByRole("button", { name: "Отмена", exact: true })
     .click();
-  await expect(
-    page.getByLabel("Электронная почта", { exact: true }),
-  ).toHaveValue("danil@example.ru");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page
     .getByRole("button", { name: "Удалить учётную запись", exact: true })
     .click();
   await page
     .getByRole("dialog")
+    .getByLabel("Пароль для удаления", { exact: true })
+    .fill("Current passphrase 123");
+  await page
+    .getByRole("dialog")
     .getByRole("button", { name: "Да, удалить", exact: true })
     .click();
   await expect(page).toHaveURL(/#\/login$/);
-  expect(
-    await page.evaluate(() => localStorage.getItem("skill-day-profile")),
-  ).toBeNull();
 });
 
-test("Auth forms validate input and explicitly keep the session in demo mode", async ({
+test("Registration validates password confirmation and recovery displays a neutral response", async ({
   page,
 }) => {
   await page.goto("/#/register");
   await page
     .getByLabel("Электронная почта", { exact: true })
     .fill("alex@example.test");
-  await page.getByLabel("Пароль", { exact: true }).fill("demo-pass");
+  await page
+    .getByLabel("Пароль", { exact: true })
+    .fill("Testing passphrase 123");
   await page
     .getByLabel("Повторите пароль", { exact: true })
-    .fill("another-pass");
+    .fill("Different passphrase 123");
   await page
     .getByRole("button", { name: "Зарегистрироваться", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText("Пароли не совпадают");
-  await page.getByLabel("Повторите пароль", { exact: true }).fill("demo-pass");
+  await page
+    .getByLabel("Повторите пароль", { exact: true })
+    .fill("Testing passphrase 123");
   await page
     .getByRole("button", { name: "Зарегистрироваться", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText(
-    "Учётная запись не создаётся",
-  );
+  await expect(page.getByRole("status")).toContainText("Подтвердите почту");
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain(
-    "demo-pass",
+    "passphrase",
   );
   await page.goto("/#/reset");
   await page
@@ -392,6 +421,32 @@ test("Auth forms validate input and explicitly keep the session in demo mode", a
     .getByRole("button", { name: "Отправить ссылку", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText(
-    "письмо не отправляется",
+    "Если подтверждённая учётная запись существует",
   );
+});
+
+test("A successful login recovers from an earlier auth-service outage", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/refresh", (route) =>
+    route.fulfill({
+      status: 503,
+      json: { title: "Сервис временно недоступен" },
+    }),
+  );
+  await page.goto("/#/profile");
+  await expect(
+    page.getByRole("heading", { name: "Авторизация временно недоступна" }),
+  ).toBeVisible();
+  await page.goto("/#/login");
+  await page
+    .getByLabel("Электронная почта", { exact: true })
+    .fill("alex@example.test");
+  await page
+    .getByLabel("Пароль", { exact: true })
+    .fill("A valid test passphrase 123");
+  await page.getByRole("button", { name: "Войти", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Ваш roadmap", exact: true }),
+  ).toBeVisible();
 });

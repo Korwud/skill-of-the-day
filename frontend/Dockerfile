@@ -3,14 +3,15 @@ FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
-COPY index.html ./
+COPY index.html vite.config.js ./
 COPY public ./public
 COPY src ./src
 RUN npm run build
 
 FROM nginx:stable-alpine AS runtime
 ENV API_GATEWAY_URL=http://api-gateway:8080 \
-    NGINX_ENVSUBST_FILTER=API_GATEWAY_URL
+    AUTH_SERVICE_URL=http://auth-service:8080 \
+    NGINX_ENVSUBST_FILTER="API_GATEWAY_URL|AUTH_SERVICE_URL"
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 8080

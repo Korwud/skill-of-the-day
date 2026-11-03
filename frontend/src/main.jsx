@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { loadProfile, seedProfile, UPDATE_INTERVAL_DAYS } from "./data";
+import { loadProfile, UPDATE_INTERVAL_DAYS } from "./data";
 import { Link } from "./components/UI";
+import { AuthProvider, RequireAuth, useAuth } from "./components/AuthProvider";
 import { Landing, Market, Auth } from "./pages/PublicPages";
+import AuthAction from "./pages/AuthAction";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
@@ -13,10 +15,34 @@ function routeFromLocation() {
     ? location.hash.slice(2).split("?")[0]
     : "";
 }
+function UserPages({ route }) {
+  const { user } = useAuth();
+  const storageKey = `skill-day-profile:${user.id}`;
+  const [stored, setStored] = useState(() => loadProfile(storageKey));
+  const profile = { ...stored, email: user.email };
+  function update(next) {
+    const saved = { ...next, email: user.email };
+    setStored(saved);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(saved));
+    } catch {}
+  }
+  function removeLocal() {
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {}
+  }
+  return route === "plan" ? (
+    <Dashboard profile={profile} update={update} />
+  ) : (
+    <Profile profile={profile} update={update} onDelete={removeLocal} />
+  );
+}
 function App() {
+  const { user, loading, logout } = useAuth();
   const [route, setRoute] = useState(routeFromLocation),
-    [profile, setProfile] = useState(loadProfile),
-    [menu, setMenu] = useState(false);
+    [menu, setMenu] = useState(false),
+    [logoutError, setLogoutError] = useState("");
   useEffect(() => {
     const change = () => {
       if (location.hash === "#main") return;
@@ -37,21 +63,20 @@ function App() {
       login: "Вход",
       register: "Регистрация",
       reset: "Восстановление пароля",
+      "reset-password": "Новый пароль",
+      "confirm-email": "Подтверждение почты",
+      "confirm-email-change": "Подтверждение новой почты",
     };
     document.title = `${titles[route] || "Страница не найдена"} — Навык дня`;
   }, [route]);
-  function update(next) {
-    setProfile(next);
+  async function signOut() {
     try {
-      localStorage.setItem("skill-day-profile", JSON.stringify(next));
-    } catch {}
-  }
-  function deleteProfile() {
-    setProfile(structuredClone(seedProfile));
-    try {
-      localStorage.removeItem("skill-day-profile");
-    } catch {}
-    location.hash = "/login";
+      await logout();
+      setLogoutError("");
+      location.hash = "/login";
+    } catch (error) {
+      setLogoutError(error.message);
+    }
   }
   return (
     <>
@@ -94,12 +119,23 @@ function App() {
             >
               Настройки
             </Link>
-            <Link to="login" className="button">
-              Вход
-            </Link>
+            {user ? (
+              <button className="button" onClick={signOut}>
+                Выйти
+              </button>
+            ) : (
+              <Link to="login" className="button">
+                {loading ? "Подождите…" : "Вход"}
+              </Link>
+            )}
           </nav>
         </div>
       </header>
+      {logoutError && (
+        <p className="container notice" role="alert">
+          {logoutError}
+        </p>
+      )}
       <main id="main" tabIndex={-1}>
         {route === "" ? (
           <Landing />
@@ -107,12 +143,20 @@ function App() {
           <Market />
         ) : ["login", "register", "reset"].includes(route) ? (
           <Auth key={route} mode={route} />
-        ) : route === "plan" ? (
-          <Dashboard profile={profile} update={update} />
-        ) : route === "profile" ? (
-          <Profile profile={profile} update={update} onDelete={deleteProfile} />
+        ) : [
+            "reset-password",
+            "confirm-email",
+            "confirm-email-change",
+          ].includes(route) ? (
+          <AuthAction key={route} mode={route} />
+        ) : ["plan", "profile"].includes(route) ? (
+          <RequireAuth loginPage={<Auth mode="login" />}>
+            <UserPages key={user?.id} route={route} />
+          </RequireAuth>
         ) : route === "admin" ? (
-          <Admin />
+          <RequireAuth admin loginPage={<Auth mode="login" />}>
+            <Admin />
+          </RequireAuth>
         ) : (
           <section className="container page">
             <h1>Страница не найдена</h1>
@@ -129,17 +173,25 @@ function App() {
           </Link>
           <p>Ваш следующий навык — новые возможности.</p>
           <div>
-            <span className="small">Демо · вымышленные вакансии</span>
+            <span className="small">
+              Статистика и roadmap · демонстрационные вакансии
+            </span>
             <span className="small">
               Обновление данных — каждые {UPDATE_INTERVAL_DAYS} дней
             </span>
-            <Link to="admin" className="small">
-              Панель администратора
-            </Link>
+            {user?.roles.includes("Admin") && (
+              <Link to="admin" className="small">
+                Панель администратора
+              </Link>
+            )}
           </div>
         </div>
       </footer>
     </>
   );
 }
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(
+  <AuthProvider>
+    <App />
+  </AuthProvider>,
+);

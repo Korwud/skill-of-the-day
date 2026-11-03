@@ -15,6 +15,20 @@ server {
         return 200 "ok\n";
     }
 
+    # Auth is connected directly until the shared API Gateway is implemented.
+    location /api/auth/ {
+        set $auth_service "${AUTH_SERVICE_URL}";
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass $auth_service;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+    }
+
     location = /api {
         return 308 /api/;
     }

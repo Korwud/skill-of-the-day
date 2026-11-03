@@ -8,4 +8,60 @@ services:
       - "${FRONTEND_HOST:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080"
     environment:
       API_GATEWAY_URL: ${API_GATEWAY_URL:-http://api-gateway:8080}
+      AUTH_SERVICE_URL: http://auth-service:8080
+    depends_on:
+      auth-service:
+        condition: service_healthy
     restart: unless-stopped
+
+  auth-service:
+    build: ./auth-service
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__AuthDb: Host=auth-db;Database=skill_day_auth;Username=auth;GSS Encryption Mode=Disable
+      Database__Password: ${AUTH_DB_PASSWORD:-local-development-only}
+      Auth__PublicOrigin: ${PUBLIC_ORIGIN:-http://127.0.0.1:8080}
+      Auth__AllowedOrigins__0: http://127.0.0.1:5173
+      Auth__AutoMigrate: "true"
+      BootstrapAdmin__Email: ${AUTH_ADMIN_EMAIL:-}
+      BootstrapAdmin__Password: ${AUTH_ADMIN_PASSWORD:-}
+      Smtp__Host: ${SMTP_HOST:-mailpit}
+      Smtp__Port: ${SMTP_PORT:-1025}
+      Smtp__Security: ${SMTP_SECURITY:-None}
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__From: ${SMTP_FROM:-no-reply@skill-day.test}
+      Smtp__Name: ${SMTP_NAME:-Навык дня}
+    volumes:
+      - auth-keys:/var/lib/skill-day-auth
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    restart: unless-stopped
+
+  auth-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: skill_day_auth
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-local-development-only}
+    volumes:
+      - auth-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth -d skill_day_auth"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.29
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+    restart: unless-stopped
+
+volumes:
+  auth-data:
+  auth-keys:

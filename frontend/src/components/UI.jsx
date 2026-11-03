@@ -40,14 +40,20 @@ export function Modal({ title, close, children, className = "" }) {
     <dialog
       ref={ref}
       className={`modal ${className}`}
-      onCancel={close}
+      onCancel={(event) => {
+        event.preventDefault();
+        close();
+      }}
       onClick={(event) => {
         if (event.target !== ref.current) return;
         const bounds = ref.current.getBoundingClientRect();
         if (
-          event.clientX < bounds.left || event.clientX > bounds.right ||
-          event.clientY < bounds.top || event.clientY > bounds.bottom
-        ) close();
+          event.clientX < bounds.left ||
+          event.clientX > bounds.right ||
+          event.clientY < bounds.top ||
+          event.clientY > bounds.bottom
+        )
+          close();
       }}
       aria-labelledby="modal-title"
     >

@@ -90,11 +90,7 @@ export default function Profile({ profile, update, onDelete }) {
           )}
         </form>
         <aside className="profile-side">
-          <AccountSettings
-            email={profile.email}
-            saveEmail={(email) => update({ ...profile, email })}
-            onDelete={onDelete}
-          />
+          <AccountSettings email={profile.email} onDelete={onDelete} />
           <section className="panel requirement-legend">
             <h2>Классификация требований вакансии</h2>
             <div className="legend-tags wrap">

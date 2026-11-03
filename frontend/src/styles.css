@@ -2224,3 +2224,17 @@ input[type="checkbox"] {
     opacity: 1;
   }
 }
+
+.auth-action {
+  max-width: 680px;
+  margin-inline: auto;
+}
+.auth-action h1,
+.auth-action form,
+.auth-action .notice {
+  margin-bottom: 24px;
+}
+.auth-action .actions {
+  flex-wrap: wrap;
+  margin-top: 24px;
+}

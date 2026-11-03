@@ -250,9 +250,9 @@ export function safeExternalUrl(url) {
     return null;
   }
 }
-export function loadProfile() {
+export function loadProfile(storageKey = "skill-day-profile") {
   try {
-    const saved = JSON.parse(localStorage.getItem("skill-day-profile"));
+    const saved = JSON.parse(localStorage.getItem(storageKey));
     if (
       !saved ||
       !Object.hasOwn(directions, saved.direction) ||

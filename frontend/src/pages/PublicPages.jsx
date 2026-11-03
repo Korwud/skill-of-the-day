@@ -1,3 +1,5 @@
+import { useAuth } from "../components/AuthProvider";
+import { request } from "../auth";
 import React, { useMemo, useState } from "react";
 import {
   directions,
@@ -287,19 +289,61 @@ export function Auth({ mode }) {
     [show, setShow] = useState(false);
   const register = mode === "register",
     reset = mode === "reset";
-  function submit(event) {
+  const { login } = useAuth();
+  const [pending, setPending] = useState(false);
+  async function submit(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const element = event.currentTarget;
+    const form = new FormData(element);
     if (register && form.get("password") !== form.get("repeat")) {
       setMessage("Пароли не совпадают. Проверьте повтор пароля.");
       return;
     }
-    event.currentTarget.reset();
-    setMessage(
-      reset
-        ? "В демонстрационной версии письмо не отправляется."
-        : "В этой версии доступен демонстрационный кабинет. Учётная запись не создаётся.",
-    );
+    setPending(true);
+    setMessage("");
+    try {
+      const email = form.get("email").trim(),
+        password = form.get("password");
+      if (reset) {
+        await request("/forgot-password", { email });
+        setMessage(
+          "Если подтверждённая учётная запись существует, письмо для восстановления отправлено.",
+        );
+      } else if (register) {
+        await request("/register", { email, password });
+        setMessage(
+          "Если адрес доступен для регистрации, мы отправили письмо. Подтвердите почту перед входом.",
+        );
+      } else {
+        await login(email, password);
+        location.hash = "/plan";
+      }
+      element.reset();
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setPending(false);
+    }
+  }
+  async function resend(event) {
+    const email = new FormData(
+      event.currentTarget.closest("section").querySelector("form"),
+    )
+      .get("email")
+      .trim();
+    if (!email) {
+      setMessage("Введите почту в поле выше.");
+      return;
+    }
+    setPending(true);
+    try {
+      await request("/resend-confirmation", { email });
+      setMessage("Если почта ожидает подтверждения, новое письмо отправлено.");
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setPending(false);
+    }
   }
   return (
     <section className="container auth-page">
@@ -389,7 +433,8 @@ export function Auth({ mode }) {
                     name="password"
                     type={show ? "text" : "password"}
                     required
-                    minLength={8}
+                    minLength={register ? 12 : 1}
+                    maxLength={128}
                     autoComplete={
                       register ? "new-password" : "current-password"
                     }
@@ -406,19 +451,22 @@ export function Auth({ mode }) {
                     name="repeat"
                     type="password"
                     required
-                    minLength={8}
+                    minLength={12}
+                    maxLength={128}
                     autoComplete="new-password"
                   />
                 </label>
               )}
             </>
           )}
-          <button className="button full">
-            {reset
-              ? "Отправить ссылку"
-              : register
-                ? "Зарегистрироваться"
-                : "Войти"}
+          <button className="button full" disabled={pending}>
+            {pending
+              ? "Подождите…"
+              : reset
+                ? "Отправить ссылку"
+                : register
+                  ? "Зарегистрироваться"
+                  : "Войти"}
           </button>
         </form>
         {!reset && !register && (
@@ -431,12 +479,21 @@ export function Auth({ mode }) {
             {message}
           </p>
         )}
-        <p className="small muted">
-          Демонстрационная версия. Пароли не отправляются и не сохраняются.
-        </p>
-        <Link to="plan" className="text-link">
-          Открыть демонстрационный кабинет →
-        </Link>
+        {register && (
+          <p className="small muted">
+            Пароль от 12 до 128 символов. Подойдёт длинная фраза.
+          </p>
+        )}
+        {!reset && (
+          <button
+            type="button"
+            className="text-link"
+            disabled={pending}
+            onClick={resend}
+          >
+            Отправить подтверждение почты повторно
+          </button>
+        )}
       </section>
     </section>
   );
