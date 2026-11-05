@@ -5,7 +5,7 @@ namespace SkillService.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/skills")]
-public class SkillController(Application.Services.SkillService service) : ControllerBase
+public class SkillController(Application.Services.SkillManager manager) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> AddSkills(
@@ -14,7 +14,7 @@ public class SkillController(Application.Services.SkillService service) : Contro
     {
         var skills = skillNames.Select(name => new SkillName { Name = name.Trim().ToLower() });
         
-        await service.AddSkills(skills, cancellationToken);
+        await manager.AddSkills(skills, cancellationToken);
         
         return Ok(); 
     }
@@ -24,7 +24,7 @@ public class SkillController(Application.Services.SkillService service) : Contro
         [FromBody] IEnumerable<string> names, 
         CancellationToken cancellationToken)
     {
-        var skills = await service.GetSkillsByName(names, cancellationToken);
+        var skills = await manager.GetSkillsByName(names, cancellationToken);
         
         return Ok(skills);
     }

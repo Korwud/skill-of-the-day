@@ -12,5 +12,10 @@
         <PackageReference Include="FluentMigrator.Runner.Postgres" />
         <PackageReference Include="Npgsql" />
     </ItemGroup>
+    
+    <ItemGroup>
+      <ProjectReference Include="..\..\..\Shared\Core\Core.csproj" />
+      <ProjectReference Include="..\ProfileService.Application\ProfileService.Application.csproj" />
+    </ItemGroup>
 
 </Project>

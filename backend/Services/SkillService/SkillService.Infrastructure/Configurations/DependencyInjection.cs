@@ -14,7 +14,7 @@ public static class DependencyInjection
     {
         services.AddSharedInfrastructure(configuration);
 
-        services.AddScoped<Application.Services.SkillService>();
+        services.AddScoped<Application.Services.SkillManager>();
         services.AddScoped<Application.Services.SkillSynonymService>();
         services.AddScoped<Application.Services.EducationalResourcesService>();
 

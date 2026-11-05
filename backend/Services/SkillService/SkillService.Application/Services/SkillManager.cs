@@ -3,7 +3,7 @@ using SkillService.Domain.Models;
 
 namespace SkillService.Application.Services;
 
-public class SkillService(
+public class SkillManager(
     ISkillRepository skillRepository
 )
 {

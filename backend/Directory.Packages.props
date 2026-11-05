@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Dapper" Version="2.1.35" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc" Version="2.3.13" />
     <PackageVersion Include="Microsoft.AspNetCore.WebUtilities" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.13" />

@@ -14,6 +14,8 @@ public static class WebApplicationBuilderExtensions
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
         
+        configureServices?.Invoke(builder.Services);
+        
         var app = builder.Build();
         
         if (app.Environment.IsDevelopment())
@@ -23,7 +25,10 @@ public static class WebApplicationBuilderExtensions
         }
 
         app.UseHttpsRedirection();
+        
+        app.UseAuthentication(); 
         app.UseAuthorization();
+        
         app.MapControllers();
 
         return app;

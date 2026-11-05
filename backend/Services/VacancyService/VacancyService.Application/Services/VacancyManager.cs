@@ -6,7 +6,7 @@ using VacancyService.Domain.Models;
 
 namespace VacancyService.Application.Services;
 
-public class VacancyService(
+public class VacancyManager(
     IVacancyRepository vacancyRepository, 
     IVacancySnapshotRepository vacancySnapshotRepository,
     IVacancySkillRepository vacancySkillRepository,
@@ -58,10 +58,12 @@ public class VacancyService(
             {
                 if (!long.TryParse(generalVacancy.ExternalId, out var externalId) || externalId <= 0)
                     continue;
-                
-                long.TryParse(generalVacancy.Directions!.First().Id, out var directionId);
 
-                long.TryParse(generalVacancy.Region!.Id, out var regionId);
+                if (!long.TryParse(generalVacancy.Directions!.First().Id, out var directionId))
+                    continue;
+
+                if (!long.TryParse(generalVacancy.Region!.Id, out var regionId))
+                    continue;
                 
                 var workFormat = generalVacancy.WorkFormat?.FirstOrDefault()?.Name ?? "Не указан";
                 

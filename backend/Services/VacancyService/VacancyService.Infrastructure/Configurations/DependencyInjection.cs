@@ -14,7 +14,7 @@ public static class DependencyInjection
     {
         services.AddSharedInfrastructure(configuration);
 
-        services.AddScoped<Application.Services.VacancyService>();
+        services.AddScoped<Application.Services.VacancyManager>();
 
         services.AddScoped<IVacancyRepository, VacancyRepository>();
         services.AddScoped<IVacancySnapshotRepository, VacancySnapshotRepository>();

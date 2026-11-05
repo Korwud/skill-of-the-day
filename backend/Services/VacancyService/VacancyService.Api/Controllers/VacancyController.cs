@@ -4,12 +4,12 @@ namespace VacancyService.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/vacancies")]
-public class VacancyController(Application.Services.VacancyService service) : ControllerBase
+public class VacancyController(Application.Services.VacancyManager manager) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> AddVacancies(CancellationToken cancellationToken, string profession = "Системный аналитик")
     {
-        await service.AddVacancies(profession, cancellationToken);
+        await manager.AddVacancies(profession, cancellationToken);
         
         return Ok(new { message = $"Вакансии профессии {profession} добавлены." });
     }
@@ -17,7 +17,7 @@ public class VacancyController(Application.Services.VacancyService service) : Co
     [HttpGet]
     public async Task<IActionResult> GetVacancies(CancellationToken cancellationToken)
     {
-        var vacancies = await service.GetVacancies(cancellationToken);
+        var vacancies = await manager.GetVacancies(cancellationToken);
         
         return Ok(vacancies);
     }
@@ -25,7 +25,7 @@ public class VacancyController(Application.Services.VacancyService service) : Co
     [HttpDelete]
     public async Task<IActionResult> DeleteVacancies(CancellationToken cancellationToken)
     {
-        await service.DeleteVacancies(cancellationToken);
+        await manager.DeleteVacancies(cancellationToken);
         
         return Ok(new { message = $"Вакансии были удалены." });
     }
