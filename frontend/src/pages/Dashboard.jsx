@@ -8,32 +8,61 @@ import {
   percent,
   skillGain,
   layers,
+  filterByLayer,
+  skillContext,
+  basisJobs,
   minimumDeficit,
   SNAPSHOT_DATE,
   UPDATE_INTERVAL_DAYS,
   formatNumber,
   vacancyText,
-  skillCategory,
 } from "../data";
-import { Link, TypeTag, RequirementLegend } from "../components/UI";
+import {
+  Link,
+  TypeTag,
+  RequirementLegend,
+  LevelSelect,
+} from "../components/UI";
 import SkillDialog from "../components/SkillDialog";
+import RoadmapGraph from "../components/RoadmapGraph";
 
 export default function Dashboard({ profile, update }) {
   const [mode, setMode] = useState("graph"),
     [selected, setSelected] = useState(null),
     [query, setQuery] = useState("");
-  const [processing, setProcessing] = useState(false),
+  const [layer, setLayer] = useState(null),
+    [processing, setProcessing] = useState(false),
     [error, setError] = useState("");
-  const worker = useRef(null);
-  const jobs = useMemo(
+  const worker = useRef(null),
+    tabs = useRef(null);
+  const baseJobs = useMemo(
     () => getScope(profile),
-    [profile.direction, profile.regions],
+    [profile.direction, profile.regions, profile.level],
+  );
+  const layerValues = useMemo(
+    () => layers(baseJobs, profile.skills),
+    [baseJobs, profile.skills],
+  );
+  const activeLayer =
+    layer !== null && layerValues.some(([value]) => value === layer)
+      ? layer
+      : null;
+  const jobs = useMemo(
+    () => filterByLayer(baseJobs, profile.skills, activeLayer),
+    [baseJobs, profile.skills, activeLayer],
   );
   const computed = useMemo(
     () => buildPlan(jobs, profile.skills, profile.direction),
     [jobs, profile.skills, profile.direction],
   );
   const [steps, setSteps] = useState(computed);
+  useEffect(() => {
+    setLayer(null);
+    setSelected(null);
+  }, [profile.direction, profile.regions, profile.level]);
+  useEffect(() => {
+    if (layer !== activeLayer) setLayer(activeLayer);
+  }, [layer, activeLayer]);
   useEffect(() => {
     worker.current?.terminate();
     setProcessing(false);
@@ -56,7 +85,7 @@ export default function Dashboard({ profile, update }) {
     });
   }
   function recalculate() {
-    if (processing) return;
+    if (processing || !jobs.length) return;
     setProcessing(true);
     setError("");
     let instance;
@@ -70,7 +99,7 @@ export default function Dashboard({ profile, update }) {
       return;
     }
     worker.current = instance;
-    instance.onmessage = ({ data }) => {
+    instance.onmessage = ({ data }) =>
       requestAnimationFrame(() => {
         if (worker.current !== instance) return;
         if (data.error) setError(data.error);
@@ -78,7 +107,6 @@ export default function Dashboard({ profile, update }) {
         setProcessing(false);
         instance.terminate();
       });
-    };
     instance.onerror = () => {
       setError("Не удалось пересчитать план. Попробуйте ещё раз.");
       setProcessing(false);
@@ -90,7 +118,35 @@ export default function Dashboard({ profile, update }) {
       direction: profile.direction,
     });
   }
-  const open = (skill, step) => setSelected({ skill, step });
+  const open = (skill, step) =>
+    setSelected({
+      skill,
+      step,
+      context: skillContext(profile.skills, step, skill),
+      jobs,
+    });
+  function chooseLayer(value) {
+    setSelected(null);
+    setLayer(value);
+    setError("");
+  }
+  function switchTab(value) {
+    setMode(value);
+  }
+  function tabKeys(event) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next =
+      event.key === "Home"
+        ? "graph"
+        : event.key === "End"
+          ? "table"
+          : mode === "graph"
+            ? "table"
+            : "graph";
+    setMode(next);
+    tabs.current.querySelector("#plan-tab-" + next).focus();
+  }
   return (
     <section className="container page dashboard">
       <div className="page-heading">
@@ -99,10 +155,18 @@ export default function Dashboard({ profile, update }) {
           Настроить профиль
         </Link>
       </div>
-      <p className="scope-line">
-        {directions[profile.direction].name} ·{" "}
-        {profile.regions.join(" + ") || "Вся Россия"} · {SNAPSHOT_DATE}
-      </p>
+      <div className="scope-settings">
+        <p className="scope-line">
+          {directions[profile.direction].name} ·{" "}
+          {profile.regions.join(" + ") || "Вся Россия"}
+          <span>Дата среза: {SNAPSHOT_DATE}</span>
+        </p>
+        <LevelSelect
+          value={profile.level || "all"}
+          disabled={processing}
+          onChange={(level) => update({ ...profile, level })}
+        />
+      </div>
       <section className="notice trends-notice">
         <strong>Обновление трендов навыков</strong>
         <p>
@@ -110,41 +174,6 @@ export default function Dashboard({ profile, update }) {
           {UPDATE_INTERVAL_DAYS} дней.
         </p>
       </section>
-      <div className="plan-navigation">
-        <div className="segments" aria-label="Представление плана">
-          <button
-            className={mode === "graph" ? "button" : "button secondary"}
-            onClick={() => setMode("graph")}
-            aria-pressed={mode === "graph"}
-          >
-            Визуальный roadmap
-          </button>
-          <button
-            className={mode === "table" ? "button" : "button secondary"}
-            onClick={() => setMode("table")}
-            aria-pressed={mode === "table"}
-          >
-            Таблица
-          </button>
-        </div>
-        <button
-          className="button recalculate"
-          onClick={recalculate}
-          disabled={processing}
-        >
-          {processing ? "Пересчёт выполняется…" : "Пересчитать план"}
-        </button>
-      </div>
-      {processing && (
-        <p role="status" className="notice">
-          Пересчёт выполняется… Показан предыдущий результат.
-        </p>
-      )}
-      {error && (
-        <p className="notice" role="alert">
-          {error}
-        </p>
-      )}
       {!noSkills && (
         <div className="metrics">
           <section className="metric metric-primary">
@@ -172,14 +201,74 @@ export default function Dashboard({ profile, update }) {
         </div>
       )}
       <RequirementLegend />
-      <fieldset
-        className={`plan-content${processing ? " processing" : ""}`}
-        disabled={processing}
-        aria-busy={processing}
+      {(!noSkills || !baseJobs.length) && (
+        <LayerPanel
+          jobs={baseJobs}
+          skills={profile.skills}
+          selected={activeLayer}
+          choose={chooseLayer}
+          processing={processing}
+        />
+      )}
+      {!noSkills && (
+        <div className="plan-navigation">
+          <div
+            ref={tabs}
+            className="segments plan-tabs"
+            role="tablist"
+            aria-label="Представление плана"
+            onKeyDown={tabKeys}
+          >
+            {[
+              ["graph", "Граф"],
+              ["table", "Таблица"],
+            ].map(([value, name]) => (
+              <button
+                type="button"
+                role="tab"
+                id={"plan-tab-" + value}
+                key={value}
+                aria-selected={mode === value}
+                aria-controls="plan-view"
+                tabIndex={mode === value ? 0 : -1}
+                disabled={processing}
+                onClick={() => switchTab(value)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <button
+            className="button recalculate"
+            onClick={recalculate}
+            disabled={processing || !jobs.length}
+          >
+            {processing ? "Пересчёт выполняется…" : "Пересчитать план"}
+          </button>
+        </div>
+      )}
+      {processing && (
+        <p role="status" className="notice">
+          Пересчёт выполняется… Показан предыдущий результат.
+        </p>
+      )}
+      {error && (
+        <p className="notice" role="alert">
+          {error}
+        </p>
+      )}
+      <div
+        id="plan-view"
+        role={noSkills ? undefined : "tabpanel"}
+        aria-labelledby={noSkills ? undefined : "plan-tab-" + mode}
       >
-        {!jobs.length ? (
-          <div className="plan-layout">
-            <div>
+        <fieldset
+          className={`plan-content${processing ? " processing" : ""}`}
+          disabled={processing}
+          aria-busy={processing}
+        >
+          {!jobs.length ? (
+            <>
               <div className="notice">
                 <h2>Вакансий в срезе нет</h2>
                 <p>
@@ -194,61 +283,79 @@ export default function Dashboard({ profile, update }) {
                 toggle={toggle}
                 open={open}
               />
-            </div>
-            <aside>
-              <LayerPanel jobs={jobs} skills={profile.skills} />
-              <Link to="profile" className="button full">
+              <Link to="profile" className="button secondary">
                 Изменить параметры среза
               </Link>
-            </aside>
-          </div>
-        ) : noSkills ? (
-          <>
-            <p className="zero-intro">
-              Начнём с основ. Отметьте знакомые навыки — затем появится
-              персональный план.
-            </p>
-            <div className="plan-layout">
-              <section className="panel zero-basics">
-                <h2>Неизученные базовые навыки</h2>
-                {remaining.map((skill) => (
-                  <div className="zero-skill" key={skill}>
-                    <label className="checkbox-row">
-                      <input
-                        type="checkbox"
-                        checked={false}
-                        onChange={() => toggle(skill)}
-                      />
-                      {skill}
-                    </label>
-                    <TypeTag />
-                    <button className="text-link" onClick={() => open(skill)}>
-                      Подробнее
-                    </button>
-                  </div>
-                ))}
-              </section>
-              <aside className="panel">
-                <p>
-                  Каждый базовый навык остаётся в списке до отметки «изучен».
-                </p>
-                <Link to="profile" className="button secondary">
-                  Выбрать навыки в профиле
-                </Link>
+            </>
+          ) : noSkills ? (
+            <>
+              <p className="zero-intro">
+                Начнём с основ. Отметьте знакомые навыки — затем появится
+                персональный план.
+              </p>
+              <div className="plan-layout">
+                <section className="panel zero-basics">
+                  <h2>Неизученные базовые навыки</h2>
+                  {remaining.map((skill) => (
+                    <div className="zero-skill" key={skill}>
+                      <label className="checkbox-row">
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          onChange={() => toggle(skill)}
+                        />
+                        {skill}
+                      </label>
+                      <TypeTag />
+                      <button className="text-link" onClick={() => open(skill)}>
+                        Подробнее
+                      </button>
+                    </div>
+                  ))}
+                </section>
+                <aside className="panel">
+                  <p>
+                    Каждый базовый навык остаётся в списке до отметки «изучен».
+                  </p>
+                  <Link to="profile" className="button secondary">
+                    Выбрать навыки в профиле
+                  </Link>
+                </aside>
+              </div>
+            </>
+          ) : mode === "graph" ? (
+            <div className="plan-layout compact-plan-layout">
+              <RoadmapGraph
+                remaining={remaining}
+                steps={steps}
+                profile={profile}
+                jobs={jobs}
+                open={open}
+                processing={processing}
+              />
+              <aside className="plan-aside">
+                <section className="panel">
+                  <h2>Как читать план</h2>
+                  <p>
+                    На узле — название навыка. Остальные показатели появляются в
+                    подсказке.
+                  </p>
+                  <p className="small">
+                    Вклад навыка равен числу вакансий-оснований. Процентный
+                    пункт — разница между процентами охвата.
+                  </p>
+                  <p className="small">
+                    Расчёт по {vacancyText(jobs.length)}
+                    {activeLayer === null
+                      ? " выбранного среза"
+                      : " слоя " + activeLayer}
+                    .
+                  </p>
+                </section>
               </aside>
             </div>
-          </>
-        ) : mode === "graph" ? (
-          <div className="plan-layout">
-            <section
-              className="panel graph-plan"
-              aria-label="Графический roadmap"
-            >
-              <h2>Графический roadmap</h2>
-              <p className="small graph-caption">
-                Базовые навыки сверху; специализированные — по убыванию вклада
-                навыка.
-              </p>
+          ) : (
+            <>
               <Basics
                 remaining={remaining}
                 profile={profile}
@@ -256,70 +363,25 @@ export default function Dashboard({ profile, update }) {
                 toggle={toggle}
                 open={open}
               />
-              {remaining.length > 0 && steps.length > 0 && (
-                <div className="flow-arrow base-connector" aria-hidden="true">
-                  ↓
-                </div>
-              )}
-              <div className="roadmap-steps">
-                {steps.map((step, index) => (
-                  <React.Fragment key={step.skills.join("+")}>
-                    {index > 0 && (
-                      <div className="flow-arrow" aria-hidden="true">
-                        ↓
-                      </div>
-                    )}
-                    <StepCard
-                      step={step}
-                      profile={profile}
-                      jobs={jobs}
-                      toggle={toggle}
-                      open={open}
-                    />
-                  </React.Fragment>
-                ))}
-              </div>
-              {!steps.length && (
-                <p className="notice">
-                  {remaining.length
-                    ? "После изучения основ все требования этого среза будут закрыты."
-                    : "Все навыки этого среза изучены. Можно изменить направление или регион."}
-                </p>
-              )}
-              <p className="notice small roadmap-explanation">
-                Стрелки показывают порядок изучения. Изученные базовые навыки
-                скрываются.
+              <PlanTable
+                steps={steps}
+                profile={profile}
+                jobs={jobs}
+                toggle={toggle}
+                open={open}
+              />
+              <p className="notice">
+                Граф и таблица показывают один план для{" "}
+                {vacancyText(jobs.length)}
+                {activeLayer === null
+                  ? " выбранного среза"
+                  : " слоя " + activeLayer}
+                . Каждый шаг учитывает предыдущие.
               </p>
-            </section>
-            <PlanAside jobs={jobs} profile={profile} />
-          </div>
-        ) : (
-          <>
-            <Basics
-              remaining={remaining}
-              profile={profile}
-              jobs={jobs}
-              toggle={toggle}
-              open={open}
-            />
-            <PlanTable
-              steps={steps}
-              profile={profile}
-              jobs={jobs}
-              toggle={toggle}
-              open={open}
-            />
-            <div className="table-bottom">
-              <LayerPanel jobs={jobs} skills={profile.skills} />
-              <div className="notice">
-                Тот же порядок рекомендаций и тот же контекст охвата, что в
-                графическом roadmap. Основы учитываются перед
-                специализированными шагами.
-              </div>
-            </div>
-          </>
-        )}
-      </fieldset>
+            </>
+          )}
+        </fieldset>
+      </div>
       {!noSkills && (
         <section className="panel learned">
           <h2>Изученные навыки</h2>
@@ -352,7 +414,7 @@ export default function Dashboard({ profile, update }) {
         <SkillDialog
           selection={selected}
           profile={profile}
-          jobs={jobs}
+          jobs={selected.jobs}
           toggle={toggle}
           close={() => setSelected(null)}
         />
@@ -394,52 +456,6 @@ function Basics({ remaining, profile, jobs, toggle, open }) {
     </section>
   );
 }
-function StepCard({ step, profile, jobs, toggle, open }) {
-  return (
-    <article className={`step-card${step.index === 0 ? " next-step" : ""}`}>
-      {step.skills.map((skill, index) => (
-        <div className="step-skill" key={skill}>
-          <div className="step-title">
-            <label className="checkbox-only">
-              <input
-                aria-label={`Изучен ${skill}`}
-                type="checkbox"
-                checked={profile.skills.includes(skill)}
-                onChange={() => toggle(skill)}
-              />
-            </label>
-            <button className="skill-link" onClick={() => open(skill, step)}>
-              {index === 0 ? `${step.index + 1}. ` : ""}
-              {skill}
-            </button>
-          </div>
-          <div className="node-tags">
-            <TypeTag type={skillCategory(jobs, skill)} />
-            <span className="contribution">
-              Вклад навыка: +{skillGain(jobs, step.before, skill)}
-            </span>
-          </div>
-          <button
-            className="text-link basis-link"
-            onClick={() => open(skill, step)}
-          >
-            Вакансии-основания ·{" "}
-            {jobs.filter((job) => job.required.includes(skill)).length}
-          </button>
-        </div>
-      ))}
-      <p className="step-gain">
-        Прирост охвата: +{formatNumber(step.percentagePoints)} п.п.
-      </p>
-      {step.partial && (
-        <p className="small">
-          Частичный шаг: минимальный дефицит уменьшается; оставшиеся навыки — на
-          следующем шаге.
-        </p>
-      )}
-    </article>
-  );
-}
 function PlanTable({ steps, profile, jobs, toggle, open }) {
   return (
     <section className="panel table-plan">
@@ -470,7 +486,7 @@ function PlanTable({ steps, profile, jobs, toggle, open }) {
             </div>
             <div className="table-types">
               {step.skills.map((skill) => (
-                <TypeTag key={skill} type={skillCategory(jobs, skill)} />
+                <TypeTag key={skill} />
               ))}
             </div>
             <span>
@@ -500,7 +516,11 @@ function PlanTable({ steps, profile, jobs, toggle, open }) {
                   onClick={() => open(skill, step)}
                 >
                   {vacancyText(
-                    jobs.filter((job) => job.required.includes(skill)).length,
+                    basisJobs(
+                      jobs,
+                      skillContext(profile.skills, step, skill),
+                      skill,
+                    ).length,
                   )}{" "}
                   ↗
                 </button>
@@ -517,33 +537,19 @@ function PlanTable({ steps, profile, jobs, toggle, open }) {
     </section>
   );
 }
-function PlanAside({ jobs, profile }) {
-  const afterBasics = coverage(jobs, [
-    ...new Set([...profile.skills, ...basicSkills[profile.direction]]),
-  ]);
-  return (
-    <aside className="plan-aside">
-      <LayerPanel jobs={jobs} skills={profile.skills} />
-      <p className="notice">
-        Сейчас охват {percent(coverage(jobs, profile.skills), jobs.length)}.
-        После базовых навыков — {percent(afterBasics, jobs.length)}. Прирост
-        охвата каждого шага учитывает предыдущие.
-      </p>
-      <p className="notice">
-        Базовые навыки остаются сверху, пока не отмечены изученными.
-      </p>
-      <p className="small">
-        Класс относится к требованию вакансии, а не к виду навыка: базовый /
-        специализированный.
-      </p>
-    </aside>
-  );
-}
-function LayerPanel({ jobs, skills }) {
+
+function LayerPanel({ jobs, skills, selected, choose, processing }) {
   const values = layers(jobs, skills);
   return (
-    <section className="panel layers">
+    <section
+      className="panel layers plan-layer-filter"
+      aria-label="Слои дефицита"
+    >
       <h2>Слои дефицита</h2>
+      <p className="small">
+        Слой — число недостающих обязательных навыков. Например, слой 2: для
+        каждой вакансии не хватает двух навыков.
+      </p>
       {!values.length ? (
         <>
           <p className="empty-layer">Слоёв нет</p>
@@ -553,18 +559,35 @@ function LayerPanel({ jobs, skills }) {
         </>
       ) : (
         <>
-          <p className="small">Слой — число недостающих обязательных навыков</p>
-          <ul>
-            {values.map(([n, count]) => (
-              <li key={n}>
-                <span>Слой {n}</span>
-                <strong>{vacancyText(count)}</strong>
-              </li>
+          <div
+            className="layer-controls"
+            role="group"
+            aria-label="Фильтр по дефициту"
+          >
+            <button
+              type="button"
+              aria-pressed={selected === null}
+              disabled={processing}
+              onClick={() => choose(null)}
+            >
+              Все · {jobs.length}
+            </button>
+            {values.map(([value, count]) => (
+              <button
+                type="button"
+                key={value}
+                aria-pressed={selected === value}
+                disabled={processing}
+                onClick={() => choose(value)}
+              >
+                Слой {value} · {count}
+              </button>
             ))}
-          </ul>
-          <p className="small">
-            Показано слоёв: {values.length}. Всего {vacancyText(jobs.length)};
-            число слоёв зависит от среза.
+          </div>
+          <p className="small" aria-live="polite">
+            {selected === null
+              ? `Все ${vacancyText(jobs.length)}. Показано слоёв: ${values.length}; число слоёв зависит от среза.`
+              : `Выбран слой ${selected}: ${vacancyText(values.find(([value]) => value === selected)[1])}. План и показатели пересчитаны по этим вакансиям.`}
           </p>
         </>
       )}

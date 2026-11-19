@@ -3,7 +3,8 @@ import { Modal, TypeTag } from "./UI";
 import {
   coverage,
   percent,
-  skillCategory,
+  skillContext,
+  basisJobs,
   safeExternalUrl,
   vacancyText,
 } from "../data";
@@ -16,17 +17,19 @@ export default function SkillDialog({
   close,
 }) {
   const { skill, step } = selection;
-  const context = [...new Set([...profile.skills, ...(step?.before || [])])];
+  const context =
+    selection.context || skillContext(profile.skills, step, skill);
   const before = coverage(jobs, context),
     after = coverage(jobs, [...context, skill]);
-  const basis = jobs.filter((job) => job.required.includes(skill));
+  const basis = basisJobs(jobs, context, skill);
   return (
     <Modal title="Навык в вашем плане" close={close} className="skill-dialog">
       <h3 className="selected-skill-name">{skill}</h3>
       <div className="skill-classification">
-        <TypeTag type={skillCategory(jobs, skill)} />
+        <TypeTag />
         <span>
-          Вакансий с требованием {skill}: {basis.length}
+          Вклад навыка: +{basis.length}{" "}
+          {vacancyText(basis.length).split(" ").slice(1).join(" ")}
         </span>
       </div>
       <section className="coverage-comparison" aria-label="Охват до и после">
@@ -39,7 +42,7 @@ export default function SkillDialog({
       </section>
       <p className="context-note">
         {step
-          ? `Прогноз шага ${step.index + 1}: основы и предыдущие шаги учитываются.`
+          ? `Прогноз шага ${step.index + 1}: основы, предыдущие шаги${step.skills.length > 1 ? " и остальные навыки этого совместного шага" : ""} учитываются.`
           : "Прогноз относительно ваших текущих изученных навыков."}
       </p>
       <label className="checkbox-row">
@@ -97,7 +100,10 @@ export default function SkillDialog({
             );
           })}
           {!basis.length && (
-            <p>В выбранном срезе вакансий с этим требованием нет.</p>
+            <p>
+              Этот навык отдельно пока не открывает новых вакансий. Для части
+              вакансий нужно изучить несколько связанных навыков.
+            </p>
           )}
         </div>
         <p className="small muted">

@@ -1080,12 +1080,6 @@ input[type="checkbox"] {
 .table-order {
   padding-left: 16px;
 }
-.table-bottom {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  align-items: start;
-}
 .mobile-field {
   display: none;
 }
@@ -1893,8 +1887,7 @@ input[type="checkbox"] {
   }
   .plan-layout,
   .profile-layout,
-  .admin-review-layout,
-  .table-bottom {
+  .admin-review-layout {
     grid-template-columns: 1fr;
     gap: 32px;
   }
@@ -2181,6 +2174,211 @@ input[type="checkbox"] {
     align-items: stretch;
   }
 }
+/* Review 06.11: slice controls, compact roadmap and accessible skill hints. */
+.scope-settings,
+.public-scope,
+.profile-scope {
+  display: grid;
+  grid-template-columns: minmax(0, 2.0625fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  margin-block: 24px 32px;
+}
+.scope-settings .scope-line,
+.scope-settings label,
+.public-scope label,
+.profile-scope label {
+  margin: 0;
+}
+.scope-line > span {
+  display: block;
+  margin-top: 8px;
+}
+.profile-scope {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.market-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+}
+.plan-layer-filter {
+  margin-block: 32px;
+}
+.layer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block: 24px;
+}
+.layer-controls button,
+.plan-tabs [role="tab"] {
+  min-height: 48px;
+  border: 1px solid var(--field-line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 24px;
+  cursor: pointer;
+}
+.layer-controls button {
+  flex: 1 1 140px;
+}
+.layer-controls button[aria-pressed="true"],
+.plan-tabs [aria-selected="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--surface);
+}
+.plan-tabs {
+  display: flex;
+  gap: 8px;
+}
+.plan-tabs [role="tab"] {
+  min-width: 112px;
+}
+.compact-plan-layout {
+  align-items: start;
+}
+.graph-basics {
+  padding: 16px;
+  margin-block: 24px;
+  background: var(--tint);
+  border-radius: 16px;
+}
+.graph-basics h3 {
+  font-size: 14px;
+  line-height: 24px;
+  margin-bottom: 24px;
+}
+.graph-basic-nodes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.skill-node {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 12px;
+  border: 1px solid var(--field-line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 14px;
+  line-height: 24px;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.skill-node:hover,
+.skill-node:focus-visible {
+  background: var(--tint);
+  border-color: var(--primary);
+}
+.compact-base-arrow {
+  font-size: 28px;
+  line-height: 40px;
+  text-align: center;
+  color: var(--primary);
+  width: 33.333%;
+}
+.compact-map {
+  max-height: 640px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  margin-inline: -8px;
+}
+.compact-roadmap {
+  display: grid;
+  align-items: stretch;
+  gap: 0;
+}
+.roadmap-step {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+.map-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  font-size: 24px;
+  line-height: 32px;
+}
+.skill-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: min(360px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid var(--primary);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 24px;
+}
+.tooltip-skill-name {
+  display: block;
+  font-size: 20px;
+  line-height: 24px;
+  margin-bottom: 12px;
+}
+.skill-tooltip p {
+  margin-top: 12px;
+}
+.plan-aside .panel > p {
+  margin-top: 24px;
+}
+.plan-table-head > span:first-child,
+.plan-table-row .table-order {
+  text-align: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+@media (max-width: 1100px) {
+  .market-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .scope-settings,
+  .public-scope,
+  .profile-scope,
+  .market-filters {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .layer-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .layer-controls button {
+    padding-inline: 8px;
+  }
+  .plan-tabs {
+    width: 100%;
+  }
+  .plan-tabs [role="tab"] {
+    flex: 1;
+  }
+  .compact-map {
+    max-height: 560px;
+  }
+  .compact-base-arrow {
+    width: 50%;
+  }
+}
+
 @media print {
   .header,
   .footer,

@@ -6,15 +6,19 @@ import {
   Client,
 } from "../../auth-service/tests/helpers.mjs";
 
-test.describe("Real auth-service through Nginx", () => {
+test.describe("Real auth-service through Nginx and API Gateway", () => {
   test.skip(
     !process.env.AUTH_INTEGRATION,
     "Run with AUTH_INTEGRATION=1 against Docker Compose",
   );
-  test("Registration, confirmation, session restoration, logout and password reset work in the browser", async ({
+  test("Registration, optional confirmation, session restoration, logout and password reset work in the browser", async ({
     page,
   }) => {
     test.setTimeout(60000);
+    const gateway = await page.request.get("/api/health/ready");
+    expect(gateway.status()).toBe(200);
+    expect(gateway.headers()["x-request-id"]).toMatch(/^[a-f0-9]{32}$/);
+    const policy = await page.request.get("/api/auth/config").then((response) => response.json());
     const email = `auth-browser-${randomUUID()}@example.test`;
     await page.goto("/#/register");
     await page.getByLabel("Электронная почта", { exact: true }).fill(email);
@@ -23,14 +27,19 @@ test.describe("Real auth-service through Nginx", () => {
     await page
       .getByRole("button", { name: "Зарегистрироваться", exact: true })
       .click();
-    await expect(page.getByRole("status")).toContainText("Подтвердите почту");
-    const confirmation = await mailLink(email, "confirm-email");
-    await page.goto("/#/confirm-email?" + new URLSearchParams(confirmation));
-    await page
-      .getByRole("button", { name: "Подтвердить почту", exact: true })
-      .click();
-    await expect(page.getByRole("status")).toContainText("Почта подтверждена");
-    await page.getByRole("link", { name: "Ко входу", exact: true }).click();
+    if (policy.requireConfirmedEmail) {
+      await expect(page.getByRole("status")).toContainText("Подтвердите почту");
+      const confirmation = await mailLink(email, "confirm-email");
+      await page.goto("/#/confirm-email?" + new URLSearchParams(confirmation));
+      await page.getByRole("button", { name: "Подтвердить почту", exact: true }).click();
+      await expect(page.getByRole("status")).toContainText("Почта подтверждена");
+      await page.getByRole("link", { name: "Ко входу", exact: true }).click();
+    } else {
+      await expect(page.getByRole("status")).toContainText("Можно сразу войти");
+      await expect(page.getByRole("button", { name: "Отправить подтверждение почты повторно" })).toHaveCount(0);
+      await page.getByRole("link", { name: "Перейти ко входу", exact: true }).click();
+    }
+    await expect(page.getByRole("heading", { name: "С возвращением", exact: true })).toBeVisible();
     await page.getByLabel("Электронная почта", { exact: true }).fill(email);
     await page.getByLabel("Пароль", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Войти", exact: true }).click();

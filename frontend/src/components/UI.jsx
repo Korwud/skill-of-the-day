@@ -1,5 +1,25 @@
 import React, { useEffect, useRef } from "react";
-import { requirementTypes } from "../data";
+import { requirementTypes, levels } from "../data";
+
+export function LevelSelect({ value = "all", onChange, disabled = false }) {
+  return (
+    <label className="level-filter">
+      Уровень
+      <select
+        aria-label="Уровень"
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {Object.entries(levels).map(([key, name]) => (
+          <option key={key} value={key}>
+            {name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 export const Link = ({ to, children, className = "", ...props }) => (
   <a href={`#/${to}`} className={className} {...props}>

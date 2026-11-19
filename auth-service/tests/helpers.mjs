@@ -50,6 +50,10 @@ export class Client {
     return this.call("/login", { email, password: value }, { expected: 200 });
   }
 }
+let configuration;
+export function authConfiguration() {
+  return configuration ??= new Client().call("/config", undefined, { method: "GET", expected: 200 }).then(result => result.json);
+}
 export async function mailLink(email, route) {
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {
@@ -76,9 +80,10 @@ export async function account({ confirmed = true, loggedIn = true } = {}) {
   const email = `auth-test-${randomUUID()}@example.test`,
     client = new Client();
   await client.call("/register", { email, password }, { expected: 202 });
-  const confirmation = await mailLink(email, "confirm-email");
-  if (confirmed)
+  const { requireConfirmedEmail } = await authConfiguration();
+  const confirmation = requireConfirmedEmail ? await mailLink(email, "confirm-email") : undefined;
+  if (requireConfirmedEmail && confirmed)
     await client.call("/confirm-email", confirmation, { expected: 204 });
-  if (loggedIn && confirmed) await client.login(email);
-  return { email, client, confirmation };
+  if (loggedIn && (!requireConfirmedEmail || confirmed)) await client.login(email);
+  return { email, client, confirmation, requireConfirmedEmail };
 }

@@ -15,6 +15,7 @@ public static class AuthEndpoints
     public static void MapAuthEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/auth").WithTags("Authentication").RequireRateLimiting("auth");
+        group.MapGet("/config", (AuthOptions options) => Results.Ok(new { requireConfirmedEmail = options.RequireConfirmedEmail }));
         group.MapPost("/register", Register);
         group.MapPost("/login", Login);
         group.MapPost("/refresh", Refresh);
@@ -52,7 +53,7 @@ public static class AuthEndpoints
     private static bool Duplicate(IdentityResult result) => result.Errors.Any(e => e.Code is "DuplicateEmail" or "DuplicateUserName");
     private static IResult InvalidLink() => Error("InvalidLink", "Ссылка недействительна или срок её действия истёк.");
 
-    private static async Task<IResult> Register(Credentials request, UserManager<AppUser> users, AuthDbContext db, MailOutbox mail)
+    private static async Task<IResult> Register(Credentials request, UserManager<AppUser> users, AuthDbContext db, MailOutbox mail, AuthOptions options)
     {
         var email = Email(request.Email);
         if (email is null || !Password(request.Password)) return Error("InvalidInput", "Укажите корректную почту и пароль длиной от 12 до 128 символов.");
@@ -66,26 +67,32 @@ public static class AuthEndpoints
         if (!result.Succeeded) return Duplicate(result) ? Results.Accepted() : IdentityError(result);
         var role = await users.AddToRoleAsync(user, "User");
         if (!role.Succeeded) throw new InvalidOperationException("Unable to assign the default role.");
-        var code = await users.GenerateEmailConfirmationTokenAsync(user);
-        mail.Add(user, "Подтвердите почту — Навык дня", "confirm-email", Parameters(user, code));
+        if (options.RequireConfirmedEmail)
+        {
+            var code = await users.GenerateEmailConfirmationTokenAsync(user);
+            mail.Add(user, "Подтвердите почту — Навык дня", "confirm-email", Parameters(user, code));
+        }
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
         return Results.Accepted();
     }
 
-    private static async Task<IResult> Login(Credentials request, UserManager<AppUser> users, SignInManager<AppUser> signIn, SessionService sessions, HttpContext http)
+    private static async Task<IResult> Login(Credentials request, UserManager<AppUser> users, SignInManager<AppUser> signIn, SessionService sessions, HttpContext http, AuthOptions options)
     {
+        var invalidCredentials = options.RequireConfirmedEmail
+            ? "Неверная почта или пароль. Проверьте, что почта подтверждена."
+            : "Неверная почта или пароль.";
         var email = Email(request.Email);
-        if (email is null || request.Password is not { Length: > 0 and <= 128 }) return Error("InvalidCredentials", "Неверная почта или пароль. Проверьте, что почта подтверждена.", 401);
+        if (email is null || request.Password is not { Length: > 0 and <= 128 }) return Error("InvalidCredentials", invalidCredentials, 401);
         var user = await users.FindByEmailAsync(email);
         if (user is null)
         {
             // Match the password-hash work of a real login without inventing a user.
             new PasswordHasher<AppUser>().VerifyHashedPassword(new AppUser(), DummyHash.Value, request.Password);
-            return Error("InvalidCredentials", "Неверная почта или пароль. Проверьте, что почта подтверждена.", 401);
+            return Error("InvalidCredentials", invalidCredentials, 401);
         }
         var result = await signIn.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
-        if (!result.Succeeded) return Error("InvalidCredentials", "Неверная почта или пароль. Проверьте, что почта подтверждена.", 401);
+        if (!result.Succeeded) return Error("InvalidCredentials", invalidCredentials, 401);
         return Results.Ok(await sessions.LoginAsync(user, http));
     }
     private static readonly Lazy<string> DummyHash = new(() => new PasswordHasher<AppUser>().HashPassword(new AppUser(), "not-an-account-password"));
@@ -109,10 +116,11 @@ public static class AuthEndpoints
         if (user is null) return InvalidLink();
         return (await users.ConfirmEmailAsync(user, code)).Succeeded ? Results.NoContent() : InvalidLink();
     }
-    private static async Task<IResult> Resend(EmailRequest request, UserManager<AppUser> users, AuthDbContext db, MailOutbox mail)
+    private static async Task<IResult> Resend(EmailRequest request, UserManager<AppUser> users, AuthDbContext db, MailOutbox mail, AuthOptions options)
     {
         var email = Email(request.Email);
         if (email is null) return Error("InvalidEmail", "Укажите корректную почту.");
+        if (!options.RequireConfirmedEmail) return Results.Accepted();
         var user = await users.FindByEmailAsync(email);
         if (user is not null && !user.EmailConfirmed)
         {
@@ -121,25 +129,25 @@ public static class AuthEndpoints
         }
         return Results.Accepted();
     }
-    private static async Task<IResult> Forgot(EmailRequest request, UserManager<AppUser> users, AuthDbContext db, MailOutbox mail)
+    private static async Task<IResult> Forgot(EmailRequest request, UserManager<AppUser> users, AuthDbContext db, MailOutbox mail, AuthOptions options)
     {
         var email = Email(request.Email);
         if (email is null) return Error("InvalidEmail", "Укажите корректную почту.");
         var user = await users.FindByEmailAsync(email);
-        if (user is not null && user.EmailConfirmed)
+        if (user is not null && (!options.RequireConfirmedEmail || user.EmailConfirmed))
         {
             mail.Add(user, "Восстановление пароля — Навык дня", "reset-password", Parameters(user, await users.GeneratePasswordResetTokenAsync(user)));
             await db.SaveChangesAsync();
         }
         return Results.Accepted();
     }
-    private static async Task<IResult> Reset(ResetPasswordRequest request, UserManager<AppUser> users, SessionService sessions, AuthDbContext db)
+    private static async Task<IResult> Reset(ResetPasswordRequest request, UserManager<AppUser> users, SessionService sessions, AuthDbContext db, AuthOptions options)
     {
         var code = MailOutbox.Decode(request.Code);
         if (!Password(request.NewPassword)) return Error("InvalidPassword", "Пароль должен содержать от 12 до 128 символов.");
         if (code is null || !Guid.TryParse(request.UserId, out _)) return InvalidLink();
         var user = await users.FindByIdAsync(request.UserId);
-        if (user is null || !user.EmailConfirmed) return InvalidLink();
+        if (user is null || (options.RequireConfirmedEmail && !user.EmailConfirmed)) return InvalidLink();
         await using var transaction = await db.Database.BeginTransactionAsync();
         var result = await users.ResetPasswordAsync(user, code, request.NewPassword);
         if (!result.Succeeded) return InvalidLink();
