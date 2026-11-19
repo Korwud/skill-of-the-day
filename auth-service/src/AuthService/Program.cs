@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using SkillDay.ServiceDefaults;
 
 if (args.Contains("--healthcheck"))
 {
@@ -44,6 +45,7 @@ if (checkSmtp)
     }
     return;
 }
+builder.AddServiceTelemetry("auth-service");
 builder.Services.AddSingleton(smtp);
 var options = builder.Configuration.GetSection("Auth").Get<AuthOptions>() ?? new();
 if (!Uri.TryCreate(options.PublicOrigin, UriKind.Absolute, out var origin) || origin.Scheme is not ("http" or "https") || origin.AbsolutePath != "/" || !string.IsNullOrEmpty(origin.Query) || !string.IsNullOrEmpty(origin.Fragment) || !string.IsNullOrEmpty(origin.UserInfo))
@@ -67,7 +69,7 @@ builder.Services.AddIdentityCore<AppUser>(o =>
     o.Password.RequireLowercase = false;
     o.Password.RequireUppercase = false;
     o.Password.RequireNonAlphanumeric = false;
-    o.SignIn.RequireConfirmedEmail = true;
+    o.SignIn.RequireConfirmedEmail = options.RequireConfirmedEmail;
     o.Lockout.MaxFailedAccessAttempts = 5;
     o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 }).AddRoles<IdentityRole<Guid>>().AddEntityFrameworkStores<AuthDbContext>().AddSignInManager().AddDefaultTokenProviders();
@@ -122,6 +124,7 @@ builder.Services.AddRateLimiter(o =>
 });
 
 var app = builder.Build();
+app.UseServiceRequestLogging();
 app.UseExceptionHandler();
 app.Use(async (http, next) =>
 {

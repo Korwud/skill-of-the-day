@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { directions, basicSkills } from "../data";
-import { Link, TypeTag } from "../components/UI";
+import { Link, TypeTag, LevelSelect } from "../components/UI";
 import RegionPicker from "../RegionPicker";
 import AccountSettings from "../AccountSettings";
 
@@ -28,23 +28,32 @@ export default function Profile({ profile, update, onDelete }) {
       <div className="profile-layout">
         <form className="panel profile-form" onSubmit={save}>
           <h2>Цель, география и навыки</h2>
-          <label>
-            Направление
-            <select
-              aria-label="Направление"
-              value={draft.direction}
-              onChange={(event) => {
-                setDraft({ ...draft, direction: event.target.value });
+          <div className="profile-scope">
+            <label>
+              Направление
+              <select
+                aria-label="Направление"
+                value={draft.direction}
+                onChange={(event) => {
+                  setDraft({ ...draft, direction: event.target.value });
+                  setMessage("");
+                }}
+              >
+                {Object.entries(directions).map(([key, value]) => (
+                  <option value={key} key={key}>
+                    {value.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <LevelSelect
+              value={draft.level || "all"}
+              onChange={(level) => {
+                setDraft({ ...draft, level });
                 setMessage("");
               }}
-            >
-              {Object.entries(directions).map(([key, value]) => (
-                <option value={key} key={key}>
-                  {value.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
           <RegionPicker
             selected={draft.regions}
             onChange={(regions) => {

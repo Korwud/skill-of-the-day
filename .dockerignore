@@ -1,0 +1,17 @@
+# The two .NET images share ServiceDefaults. Send only their source trees.
+**
+!global.json
+!api-gateway/
+!api-gateway/src/
+!api-gateway/src/**
+!auth-service/
+!auth-service/src/
+!auth-service/src/**
+!observability/
+!observability/ServiceDefaults/
+!observability/ServiceDefaults/**
+**/bin
+**/obj
+**/.env
+**/.env.*
+**/appsettings.Development.json

@@ -2,6 +2,13 @@
 export const SNAPSHOT_DATE = "20.10.2026";
 export const UPDATE_INTERVAL_DAYS = 5;
 export const PUBLIC_SKILL_COUNT = 5;
+export const levels = {
+  all: "Все уровни",
+  intern: "Стажёр",
+  junior: "Junior",
+  middle: "Middle",
+  senior: "Senior",
+};
 export const directions = {
   analyst: {
     name: "Системный анализ",
@@ -63,6 +70,7 @@ export const basicSkills = Object.fromEntries(
 );
 export const seedProfile = {
   direction: "analyst",
+  level: "all",
   regions: ["Москва", "Удалённая работа"],
   skills: [],
   email: "alex@example.test",
@@ -99,6 +107,7 @@ const datasets = Object.fromEntries(
           (skill) => !required.includes(skill),
         );
         const desired = other.length ? [other[i % other.length]] : [];
+        const level = Object.keys(levels).slice(1)[(i + Math.floor(i / 4)) % 4];
         return {
           id: `${direction.prefix}-${String(i + 1).padStart(3, "0")}`,
           title:
@@ -109,7 +118,8 @@ const datasets = Object.fromEntries(
                   "Системный аналитик · интеграции",
                   "Аналитик продуктовой команды",
                 ][i % 4]
-              : `${direction.short} · ${i % 2 ? "junior" : "middle"}`,
+              : `${direction.short} · ${levels[level]}`,
+          level,
           region: i % 4 === 0 ? "Удалённо" : "Москва",
           remote: i % 4 === 0,
           required,
@@ -135,9 +145,12 @@ export const vacancies = (direction) => datasets[direction] || [];
 export function getScope(profile) {
   return vacancies(profile.direction).filter(
     (job) =>
-      !profile.regions.length ||
-      profile.regions.includes(job.region) ||
-      (profile.regions.includes("Удалённая работа") && job.remote),
+      (!profile.level ||
+        profile.level === "all" ||
+        job.level === profile.level) &&
+      (!profile.regions.length ||
+        profile.regions.includes(job.region) ||
+        (profile.regions.includes("Удалённая работа") && job.remote)),
   );
 }
 export const coverage = (jobs, skills) =>
@@ -153,6 +166,27 @@ export const vacancyText = (n) =>
   `${n} ${n % 100 >= 11 && n % 100 <= 14 ? "вакансий" : n % 10 === 1 ? "вакансия" : n % 10 >= 2 && n % 10 <= 4 ? "вакансии" : "вакансий"}`;
 export const deficit = (job, skills) =>
   job.required.filter((skill) => !skills.includes(skill));
+export const filterByLayer = (jobs, skills, layer) =>
+  layer === null
+    ? jobs
+    : jobs.filter((job) => deficit(job, skills).length === layer);
+export const skillContext = (skills, step, skill) => [
+  ...new Set([
+    ...skills,
+    ...(step?.before || []),
+    ...(step?.skills.filter((value) => value !== skill) || []),
+  ]),
+];
+export const basisJobs = (jobs, skills, skill) =>
+  jobs.filter(
+    (job) =>
+      !job.required.every((value) => skills.includes(value)) &&
+      job.required.every((value) => skills.includes(value) || value === skill),
+  );
+export const countLabel = (category) =>
+  category === "mentioned"
+    ? "Вакансий с упоминанием"
+    : "Вакансий с требованием";
 export function layers(jobs, skills) {
   const counts = new Map();
   for (const job of jobs) {
@@ -189,12 +223,13 @@ export function skillCategory(jobs, skill) {
       jobs.filter((j) => j[a].includes(skill)).length,
   )[0];
 }
-// Bases stay above the three specialised steps, as in the approved roadmap.
+// Bases stay above the specialised steps. The plan is not capped at three skills.
 // Each specialised step is evaluated after the missing bases and previous steps.
 export function buildPlan(jobs, skills, direction = "analyst") {
   let context = [...new Set([...skills, ...basicSkills[direction]])];
   const steps = [];
-  for (let index = 0; index < 3; index++) {
+  const limit = new Set(jobs.flatMap((job) => job.required)).size;
+  for (let index = 0; index < limit; index++) {
     const missing = jobs
       .map((job) => deficit(job, context))
       .filter((item) => item.length);
@@ -262,6 +297,7 @@ export function loadProfile(storageKey = "skill-day-profile") {
       return structuredClone(seedProfile);
     return {
       direction: saved.direction,
+      level: Object.hasOwn(levels, saved.level) ? saved.level : "all",
       skills: [
         ...new Set(
           saved.skills

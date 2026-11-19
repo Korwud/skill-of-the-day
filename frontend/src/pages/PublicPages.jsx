@@ -1,9 +1,8 @@
 import { useAuth } from "../components/AuthProvider";
 import { request } from "../auth";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   directions,
-  vacancies,
   statistics,
   getScope,
   PUBLIC_SKILL_COUNT,
@@ -11,14 +10,15 @@ import {
   UPDATE_INTERVAL_DAYS,
   vacancyText,
   requirementTypes,
+  countLabel,
 } from "../data";
-import { Link, RouteExample, TypeTag } from "../components/UI";
+import { Link, RouteExample, TypeTag, LevelSelect } from "../components/UI";
 
-function MarketCards() {
+function MarketCards({ level = "all" }) {
   return (
     <div className="three-columns market-cards">
       {Object.entries(directions).map(([key, direction]) => {
-        const jobs = vacancies(key),
+        const jobs = getScope({ direction: key, regions: [], level }),
           ranking = statistics(jobs, direction.skills).slice(
             0,
             PUBLIC_SKILL_COUNT,
@@ -29,7 +29,7 @@ function MarketCards() {
             <p>Вакансий в срезе: {jobs.length}</p>
             <div className="market-card-heading small">
               <span>Навык / тип требования</span>
-              <span>Вакансий с требованием</span>
+              <span>Вакансий с навыком</span>
             </div>
             {ranking.map((item) => (
               <div className="market-card-row" key={item.skill}>
@@ -37,7 +37,10 @@ function MarketCards() {
                   <strong>{item.skill}</strong>
                   <TypeTag type={item.category} />
                 </div>
-                <span className="market-count">{item.count}</span>
+                <span className="market-count">
+                  <span className="sr-only">{countLabel(item.category)}: </span>
+                  {item.count}
+                </span>
               </div>
             ))}
           </article>
@@ -47,6 +50,7 @@ function MarketCards() {
   );
 }
 export function Landing() {
+  const [level, setLevel] = useState("all");
   return (
     <>
       <section className="hero">
@@ -109,8 +113,11 @@ export function Landing() {
             Подробная статистика
           </Link>
         </div>
-        <p className="slice-date">Дата среза · {SNAPSHOT_DATE}</p>
-        <MarketCards />
+        <div className="public-scope">
+          <p className="slice-date">Дата среза · {SNAPSHOT_DATE}</p>
+          <LevelSelect value={level} onChange={setLevel} />
+        </div>
+        <MarketCards level={level} />
       </section>
       <section className="container cta">
         <h2>Один новый навык — больше подходящих вакансий.</h2>
@@ -123,12 +130,14 @@ export function Landing() {
 }
 export function Market() {
   const [direction, setDirection] = useState("analyst"),
+    [level, setLevel] = useState("all"),
     [region, setRegion] = useState("all"),
     [type, setType] = useState("all"),
     [query, setQuery] = useState("");
   const jobs = useMemo(
-    () => getScope({ direction, regions: region === "all" ? [] : [region] }),
-    [direction, region],
+    () =>
+      getScope({ direction, regions: region === "all" ? [] : [region], level }),
+    [direction, region, level],
   );
   const ranking = statistics(
     jobs,
@@ -147,7 +156,7 @@ export function Market() {
         <p className="slice-date">Дата среза · {SNAPSHOT_DATE}</p>
         <p>Вакансий в срезе: {jobs.length}</p>
       </div>
-      <div className="three-columns market-filters">
+      <div className="market-filters">
         <label>
           Направление
           <select
@@ -175,6 +184,7 @@ export function Market() {
             <option>Владивосток</option>
           </select>
         </label>
+        <LevelSelect value={level} onChange={setLevel} />
         <label>
           Тип требования
           <select
@@ -206,7 +216,9 @@ export function Market() {
             <article className="ranking-row" key={item.skill}>
               <strong>{item.skill}</strong>
               <TypeTag type={item.category} />
-              <span>Вакансий с требованием: {item.count}</span>
+              <span>
+                {countLabel(item.category)}: {item.count}
+              </span>
               <span className="small">+{item.delta} к срезу 15.10</span>
               <Link to="plan" className="text-link">
                 {vacancyText(item.count)} ↗
@@ -286,13 +298,32 @@ function RequirementLegendLocal() {
 }
 export function Auth({ mode }) {
   const [message, setMessage] = useState(""),
-    [show, setShow] = useState(false);
+    [show, setShow] = useState(false),
+    [policy, setPolicy] = useState(null),
+    [policyError, setPolicyError] = useState(""),
+    [policyAttempt, setPolicyAttempt] = useState(0),
+    [registered, setRegistered] = useState(false);
   const register = mode === "register",
     reset = mode === "reset";
   const { login } = useAuth();
   const [pending, setPending] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setPolicyError("");
+    request("/config", undefined, { method: "GET" })
+      .then((value) => {
+        if (typeof value?.requireConfirmedEmail !== "boolean")
+          throw new Error("Не удалось загрузить настройки регистрации.");
+        if (active) setPolicy(value);
+      })
+      .catch((error) => {
+        if (active) setPolicyError(error.message);
+      });
+    return () => { active = false; };
+  }, [policyAttempt]);
   async function submit(event) {
     event.preventDefault();
+    if (register && !policy) return;
     const element = event.currentTarget;
     const form = new FormData(element);
     if (register && form.get("password") !== form.get("repeat")) {
@@ -307,13 +338,16 @@ export function Auth({ mode }) {
       if (reset) {
         await request("/forgot-password", { email });
         setMessage(
-          "Если подтверждённая учётная запись существует, письмо для восстановления отправлено.",
+          "Если адрес зарегистрирован и восстановление доступно, письмо для восстановления отправлено.",
         );
       } else if (register) {
         await request("/register", { email, password });
         setMessage(
-          "Если адрес доступен для регистрации, мы отправили письмо. Подтвердите почту перед входом.",
+          policy.requireConfirmedEmail
+            ? "Если адрес доступен для регистрации, мы отправили письмо. Подтвердите почту перед входом."
+            : "Можно сразу войти с указанной почтой и паролем. Для существующего аккаунта используйте прежний пароль.",
         );
+        setRegistered(true);
       } else {
         await login(email, password);
         location.hash = "/plan";
@@ -412,6 +446,17 @@ export function Auth({ mode }) {
             </Link>
           </nav>
         )}
+        {policyError && (
+          <div role="alert" className="notice">
+            <p>{policyError}</p>
+            <button type="button" className="text-link" onClick={() => setPolicyAttempt((value) => value + 1)}>
+              Повторить загрузку настроек
+            </button>
+          </div>
+        )}
+        {register && policy?.requireConfirmedEmail === false && (
+          <p className="small">Подтверждение почты не требуется. После регистрации можно сразу войти.</p>
+        )}
         <form onSubmit={submit}>
           <label>
             Электронная почта
@@ -459,7 +504,7 @@ export function Auth({ mode }) {
               )}
             </>
           )}
-          <button className="button full" disabled={pending}>
+          <button className="button full" disabled={pending || (register && !policy)}>
             {pending
               ? "Подождите…"
               : reset
@@ -479,12 +524,15 @@ export function Auth({ mode }) {
             {message}
           </p>
         )}
+        {register && registered && policy?.requireConfirmedEmail === false && (
+          <Link to="login" className="button full">Перейти ко входу</Link>
+        )}
         {register && (
           <p className="small muted">
             Пароль от 12 до 128 символов. Подойдёт длинная фраза.
           </p>
         )}
-        {!reset && (
+        {!reset && policy?.requireConfirmedEmail && (
           <button
             type="button"
             className="text-link"

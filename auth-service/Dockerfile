@@ -1,9 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY src/AuthService/AuthService.csproj src/AuthService/
-RUN dotnet restore src/AuthService/AuthService.csproj
-COPY src src
-RUN dotnet publish src/AuthService/AuthService.csproj -c Release -o /out --no-restore /p:UseAppHost=false
+COPY auth-service/src/AuthService/AuthService.csproj auth-service/src/AuthService/
+COPY observability/ServiceDefaults/ServiceDefaults.csproj observability/ServiceDefaults/
+RUN dotnet restore auth-service/src/AuthService/AuthService.csproj
+COPY auth-service/src auth-service/src
+COPY observability/ServiceDefaults observability/ServiceDefaults
+RUN dotnet publish auth-service/src/AuthService/AuthService.csproj -c Release -o /out --no-restore /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app

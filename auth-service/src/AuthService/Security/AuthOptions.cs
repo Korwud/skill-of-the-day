@@ -9,5 +9,6 @@ public sealed class AuthOptions
     public string PublicOrigin { get; set; } = "http://127.0.0.1:8080";
     public string KeyDirectory { get; set; } = "/var/lib/skill-day-auth";
     public bool AutoMigrate { get; set; }
+    public bool RequireConfirmedEmail { get; set; } = true;
     public string[] AllowedOrigins { get; set; } = [];
 }

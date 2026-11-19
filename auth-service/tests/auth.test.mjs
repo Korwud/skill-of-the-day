@@ -1,21 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createPublicKey, verify, randomUUID } from "node:crypto";
-import { Client, account, mailLink, password, base } from "./helpers.mjs";
+import { Client, account, mailLink, password, base, inbox } from "./helpers.mjs";
 
 // Run against local Compose. These scenarios exercise the actual PostgreSQL, SMTP and HTTP stack.
-test("Registration requires email confirmation and rejects an invalid password", async () => {
-  const { email, client, confirmation } = await account({ confirmed: false });
-  await client.call("/login", { email, password }, { expected: 401 });
-  await client.call(
-    "/confirm-email",
-    { ...confirmation, code: "bad" },
-    { expected: 400 },
-  );
-  await client.call("/confirm-email", confirmation, { expected: 204 });
+test("Registration follows the confirmation policy, preserves unverified status and rejects an invalid password", async () => {
+  const { email, client, confirmation, requireConfirmedEmail } = await account({ confirmed: false, loggedIn: false });
+  if (requireConfirmedEmail) {
+    await client.call("/login", { email, password }, { expected: 401 });
+    await client.call("/confirm-email", { ...confirmation, code: "bad" }, { expected: 400 });
+    await client.call("/confirm-email", confirmation, { expected: 204 });
+  } else {
+    await client.call("/resend-confirmation", { email }, { expected: 202 });
+    const messages = await fetch(`${inbox}/api/v1/search?query=${encodeURIComponent("to:" + email)}`).then(response => response.json());
+    assert.equal((messages.messages || []).length, 0, "Registration must not send a confirmation message when confirmation is disabled");
+  }
   const login = await client.login(email);
   assert.equal(login.json.user.email, email);
   assert.deepEqual(login.json.user.roles, ["User"]);
+  assert.equal(login.json.user.emailConfirmed, requireConfirmedEmail);
+  await client.call("/me", undefined, { method: "GET", auth: true, expected: 200 });
+  const refreshed = await client.call("/refresh", undefined, { expected: 200 });
+  assert.equal(refreshed.json.user.emailConfirmed, requireConfirmedEmail);
   await client.call(
     "/register",
     { email: `auth-test-${randomUUID()}@example.test`, password: "short" },

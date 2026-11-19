@@ -35,7 +35,7 @@ public sealed class SessionService(AuthDbContext db, UserManager<AppUser> users,
         var refresh = await db.RefreshTokens.FromSqlInterpolated($"SELECT * FROM auth.\"RefreshTokens\" WHERE \"Hash\" = {hash} FOR UPDATE").SingleOrDefaultAsync();
         if (refresh is null) return null;
         var session = await db.Sessions.Include(x => x.User).SingleAsync(x => x.Id == refresh.SessionId);
-        if (refresh.UsedAt is not null || session.RevokedAt is not null || session.ExpiresAt <= Now || !session.User.EmailConfirmed || session.SecurityStamp != session.User.SecurityStamp)
+        if (refresh.UsedAt is not null || session.RevokedAt is not null || session.ExpiresAt <= Now || (options.RequireConfirmedEmail && !session.User.EmailConfirmed) || session.SecurityStamp != session.User.SecurityStamp)
         {
             session.RevokedAt ??= Now;
             await db.SaveChangesAsync();
@@ -66,7 +66,7 @@ public sealed class SessionService(AuthDbContext db, UserManager<AppUser> users,
     public async Task<bool> ValidateAsync(ClaimsPrincipal principal)
     {
         if (!Guid.TryParse(principal.FindFirstValue("sub"), out var userId) || !Guid.TryParse(principal.FindFirstValue("sid"), out var sessionId)) return false;
-        return await db.Sessions.AsNoTracking().AnyAsync(x => x.Id == sessionId && x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > Now && x.SecurityStamp == x.User.SecurityStamp && x.User.EmailConfirmed);
+        return await db.Sessions.AsNoTracking().AnyAsync(x => x.Id == sessionId && x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > Now && x.SecurityStamp == x.User.SecurityStamp && (!options.RequireConfirmedEmail || x.User.EmailConfirmed));
     }
 
     public async Task<UserResponse> UserAsync(AppUser user) => new(user.Id, user.Email!, user.EmailConfirmed, await users.GetRolesAsync(user));
